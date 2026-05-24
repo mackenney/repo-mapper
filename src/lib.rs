@@ -10,8 +10,8 @@ mod tag;
 
 // Language support
 pub mod lang;
-mod parser;
-mod queries;
+pub mod parser;
+pub mod queries;
 
 // Tag extraction
 mod extract;
