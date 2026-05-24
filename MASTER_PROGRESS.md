@@ -8,7 +8,7 @@ Read this file to understand the current state of repo-mapper. One-liner per ite
 
 | Item | Plan | Notes |
 |---|---|---|
-| _(none)_ | | |
+| Full implementation | [plans/implementation/](./plans/implementation/PROGRESS.md) | Core pipeline, algorithm, API, CLI — 15 steps across 10 waves |
 
 ---
 
