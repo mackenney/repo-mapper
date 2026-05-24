@@ -9,7 +9,7 @@ pub mod path;
 mod tag;
 
 // Language support
-mod lang;
+pub mod lang;
 mod parser;
 mod queries;
 
