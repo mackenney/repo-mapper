@@ -19,7 +19,7 @@ Read this file to understand the current state of repo-mapper. One-liner per ite
 | What | Ref |
 |---|---|
 | SPEC.md reverse-engineered from reference/aider/aider/repomap.py | pre-history |
-| AGENTS.md, MASTER_PROGRESS.md, project governance established | _(this commit)_ |
+| AGENTS.md, MASTER_PROGRESS.md, project governance established | `e6d1201` |
 
 ---
 
