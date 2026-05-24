@@ -37,7 +37,7 @@ Gaps with an active plan are marked. Unplanned gaps are open for pickup.
 
 | ID | Issue | Plan | Notes |
 |---|---|---|---|
-| OQ-1 | I/O and diagnostic abstraction unresolved | _(no plan)_ | Must decide between `dyn RepoMapIO` trait, callback struct, or `tracing` integration before implementing §3.1 file reading and §13.5 warning emission |
-| OQ-2 | Pygments reference fallback (§3.2) has no Rust equivalent | _(no plan)_ | Reference uses Python Pygments for token-type classification; Rust needs a replacement strategy or a v1 deferral decision |
+| OQ-1 | ~~I/O and diagnostic abstraction~~ | **RESOLVED** | `tracing` for diagnostics, `std::fs` for file reading. See SPEC §14 and §17.5 |
+| OQ-2 | ~~Pygments fallback has no Rust equivalent~~ | **RESOLVED** | Replaced with supplemental `-idents.scm` tree-sitter query. See SPEC §3.2 |
 | BUG-REF-1 | Reference captures-processing bug (§3.5) | _(no plan)_ | repomap.py loop indentation bug — intentionally NOT replicated; Rust MUST emit one Tag per captured node with no data loss and no duplicates |
 | BUG-REF-2 | `warned_files` class-level shared state (§13.5) | _(no plan)_ | Reference uses class-level set, sharing deduplication across all instances; Rust MUST use per-instance state instead |

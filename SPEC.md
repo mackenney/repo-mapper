@@ -79,22 +79,33 @@ For each source file the implementation MUST:
 
 ### 3.2 Pygments reference fallback
 
-If tree-sitter extraction for a file produces **at least one definition tag and zero reference tags**, the implementation MUST apply a Pygments-based fallback to backfill reference tags:
+If tree-sitter extraction for a file produces **at least one definition tag and zero reference tags**, the implementation MUST apply a tree-sitter identifier fallback to backfill reference tags:
 
-1. Use Pygments to identify a lexer for the file (`guess_lexer_for_filename`). If this
-   call raises any exception, the fallback MUST be silently skipped — definition tags
-   already produced for this file are retained and no reference tags are emitted.
-   Otherwise, lex the file content with that lexer.
-2. For every token whose Pygments type is in the `Token.Name` family, emit a `Tag` with:
+1. Locate a supplemental identifier query file for the language using the same search path as
+   the primary tag query (§4.1), but with the suffix `-idents.scm` instead of `-tags.scm`.
+   For example: `queries/tree-sitter-language-pack/typescript-idents.scm`.
+   If no `-idents.scm` file exists for the language, the fallback MUST be silently skipped —
+   definition tags already produced are retained and no reference tags are emitted.
+2. Execute the identifier query against the same already-parsed AST root node.
+   Captures in the `-idents.scm` file MUST use `name.reference.*` capture names; any other
+   capture name MUST be ignored (same dispatch rule as §3.1 steps 7–9).
+3. For each matched capture, emit a `Tag` with:
    - `kind = "ref"`
-   - `name` = the token text
+   - `name` = the UTF-8 decoded text of the node
    - `line = -1` (sentinel: no meaningful line number)
-3. The backfilled reference tags are appended after the definition tags for this file.
+4. The backfilled reference tags are appended after the definition tags for this file.
 
-If tree-sitter produces **no definitions and no references**, the Pygments fallback MUST NOT be applied.
+If tree-sitter produces **no definitions and no references**, the identifier fallback MUST NOT be applied.
 
-If tree-sitter produces **references** (with or without definitions), the Pygments fallback MUST NOT be applied.
+If tree-sitter produces **references** (with or without definitions), the identifier fallback MUST NOT be applied.
 
+[DESIGN NOTE: The reference implementation uses Python Pygments' `Token.Name` family for this
+fallback. The Rust implementation replaces this with a supplemental tree-sitter `-idents.scm`
+query on the already-parsed AST, eliminating the Pygments runtime dependency. This is the
+primary mechanism ensuring TypeScript files participate correctly in graph construction: the
+TypeScript tag query has no `name.reference.call` capture (§4.3), so TypeScript files always
+trigger this fallback. The TypeScript `-idents.scm` MUST capture `identifier`, `type_identifier`,
+and `property_identifier` nodes as `name.reference.identifier`.]
 ### 3.3 Non-file inputs
 
 If a path does not resolve to a regular file (e.g., directory, symlink to non-file, or missing), the implementation MUST skip it, emit a warning to the caller once per unique path, and produce no tags for it.
@@ -104,7 +115,11 @@ If a path does not resolve to a regular file (e.g., directory, symlink to non-fi
 Line numbers MUST be 1-indexed. The `line` field of a `Tag` MUST store the 1-indexed line
 number of the captured node (i.e., `node.start_point[0] + 1` in tree-sitter terms).
 
-The `line` field for Pygments-backfilled reference tags MUST be `-1` (sentinel: no meaningful line number).
+[INTENTIONAL DEVIATION FROM REFERENCE: `repomap.py` stores `node.start_point[0]` with no
+`+ 1` (0-indexed). The Rust implementation uses 1-indexed line numbers. This is a deliberate
+improvement for user-facing output consistency.]
+
+The `line` field for identifier-fallback reference tags MUST be `-1` (sentinel: no meaningful line number).
 
 ### 3.5 Known bug in reference implementation: captures-processing
 
@@ -356,6 +371,10 @@ The implementation MUST run PageRank on the constructed graph with:
 - Convergence tolerance: **1.0e-6** (configurable via `pagerank_tol`; see §14)
 - Maximum iterations: **100** (configurable via `pagerank_max_iter`; see §14)
 
+Note: the reference implementation relies on NetworkX's default values for all three parameters
+— no explicit values are passed to `nx.pagerank()`. The Rust implementation MUST pass them
+explicitly since no equivalent implicit defaults exist.
+
 ### 7.3 ZeroDivisionError handling
 
 If PageRank raises a division-by-zero error:
@@ -405,12 +424,73 @@ This produces a per-(file, identifier) rank score.
 
 ### 8.1 Definition
 
-A set of "important" files is pre-defined by filename (and optionally directory pattern).
-These represent conventional repository files such as `README.md`, `Cargo.toml`,
-`package.json`, `Dockerfile`, `Makefile`, and similar.
+A set of "important" files is pre-defined by filename and directory pattern.
+These represent conventional repository files that agents and users expect to see at the top
+of any repo map. The implementation MUST treat the following paths as important:
 
-The exact list is implementation-defined but SHOULD include all files from
-`reference/aider/aider/special.py`'s `ROOT_IMPORTANT_FILES`.
+**Version control:** `.gitignore`, `.gitattributes`
+
+**Documentation:** `README`, `README.md`, `README.txt`, `README.rst`, `CONTRIBUTING`,
+`CONTRIBUTING.md`, `CONTRIBUTING.txt`, `CONTRIBUTING.rst`, `LICENSE`, `LICENSE.md`,
+`LICENSE.txt`, `CHANGELOG`, `CHANGELOG.md`, `CHANGELOG.txt`, `CHANGELOG.rst`,
+`SECURITY`, `SECURITY.md`, `SECURITY.txt`, `CODEOWNERS`
+
+**Package management:** `requirements.txt`, `Pipfile`, `Pipfile.lock`, `pyproject.toml`,
+`setup.py`, `setup.cfg`, `package.json`, `package-lock.json`, `yarn.lock`,
+`npm-shrinkwrap.json`, `Gemfile`, `Gemfile.lock`, `composer.json`, `composer.lock`,
+`pom.xml`, `build.gradle`, `build.gradle.kts`, `build.sbt`, `go.mod`, `go.sum`,
+`Cargo.toml`, `Cargo.lock`, `mix.exs`, `rebar.config`, `project.clj`, `Podfile`,
+`Cartfile`, `dub.json`, `dub.sdl`
+
+**Configuration:** `.env`, `.env.example`, `.editorconfig`, `tsconfig.json`, `jsconfig.json`,
+`.babelrc`, `babel.config.js`, `.eslintrc`, `.eslintignore`, `.prettierrc`, `.stylelintrc`,
+`tslint.json`, `.pylintrc`, `.flake8`, `.rubocop.yml`, `.scalafmt.conf`, `.dockerignore`,
+`.gitpod.yml`, `sonar-project.properties`, `renovate.json`, `dependabot.yml`,
+`.pre-commit-config.yaml`, `mypy.ini`, `tox.ini`, `.yamllint`, `pyrightconfig.json`
+
+**Build:** `webpack.config.js`, `rollup.config.js`, `parcel.config.js`, `gulpfile.js`,
+`Gruntfile.js`, `build.xml`, `build.boot`, `project.json`, `build.cake`, `MANIFEST.in`
+
+**Testing:** `pytest.ini`, `phpunit.xml`, `karma.conf.js`, `jest.config.js`, `cypress.json`,
+`.nycrc`, `.nycrc.json`
+
+**CI/CD:** `.travis.yml`, `.gitlab-ci.yml`, `Jenkinsfile`, `azure-pipelines.yml`,
+`bitbucket-pipelines.yml`, `appveyor.yml`, `circle.yml`, `.circleci/config.yml`,
+`.github/dependabot.yml`, `codecov.yml`, `.coveragerc`
+
+**Containers:** `Dockerfile`, `docker-compose.yml`, `docker-compose.override.yml`
+
+**Cloud/serverless:** `serverless.yml`, `firebase.json`, `now.json`, `netlify.toml`,
+`vercel.json`, `app.yaml`, `terraform.tf`, `main.tf`, `cloudformation.yaml`,
+`cloudformation.json`, `ansible.cfg`, `kubernetes.yaml`, `k8s.yaml`
+
+**Database:** `schema.sql`, `liquibase.properties`, `flyway.conf`
+
+**Frameworks:** `next.config.js`, `nuxt.config.js`, `vue.config.js`, `angular.json`,
+`gatsby-config.js`, `gridsome.config.js`
+
+**API docs:** `swagger.yaml`, `swagger.json`, `openapi.yaml`, `openapi.json`
+
+**Dev environment:** `.nvmrc`, `.ruby-version`, `.python-version`, `Vagrantfile`
+
+**Quality:** `.codeclimate.yml`, `codecov.yml`
+
+**Docs tooling:** `mkdocs.yml`, `_config.yml`, `book.toml`, `readthedocs.yml`, `.readthedocs.yaml`
+
+**Package registries:** `.npmrc`, `.yarnrc`
+
+**Linting:** `.isort.cfg`, `.markdownlint.json`, `.markdownlint.yaml`
+
+**Security:** `.bandit`, `.secrets.baseline`
+
+**Misc:** `.pypirc`, `.gitkeep`, `.npmignore`
+
+**Directory pattern:** Any `*.yml` file directly inside `.github/workflows/` is important
+regardless of its exact filename.
+
+Matching is by `rel_fname` (normalized path from repo root). A file matches if its normalized
+path equals one of the listed entries exactly, or satisfies the `.github/workflows/` directory
+pattern above.
 
 ### 8.2 Ordering guarantee
 
@@ -699,23 +779,31 @@ initialization. Internally, the algorithm references this as `max_map_tokens`. T
 the same value; `max_map_tokens` may be temporarily overridden within a single call (§10.3) or
 permanently set to 0 by §13.4. The stored `map_tokens` field is never mutated.
 
-**I/O abstraction:** The reference implementation injects a `main_model` for token counting and
-an `io` object for file reading and diagnostic emission. The Rust library MUST provide
-caller-injectable equivalents for: (1) token counting — satisfied by the tiktoken encoder
-(§10.1); (2) diagnostic emission (warnings, errors, verbose output) — the mechanism is an
-Open Question (see §15).
+**I/O abstraction:** The reference implementation injects a `main_model` for token counting
+and an `io` object for file reading and diagnostic emission. The Rust library resolves this as
+follows:
+- **File reading:** `std::fs::read_to_string` with `String::from_utf8_lossy` for undecodable
+  bytes (§13.6). No injectable abstraction.
+- **Diagnostics (warnings, errors, verbose output):** the `tracing` crate. The library emits
+  structured events via `tracing::warn!`, `tracing::error!`, and `tracing::debug!`. Callers
+  install a subscriber; if none is configured, events are silently dropped. The CLI binary
+  installs a `tracing-subscriber` that routes to stderr, gated on `--verbose` (§17).
+- **Token counting:** the `tiktoken-rs` crate (§10.1). No injection needed.
+
+**Intentional SPEC extensions over hardcoded reference values:** `self_edge_weight` (§6.5,
+§14; hardcoded `0.1` in reference) and `max_line_length` (§12.4, §14; hardcoded `100` in
+reference) are exposed as configurable parameters in the Rust API. Their defaults match the
+reference values exactly.
 
 ---
 
-## 15. Open Questions
+## 15. Resolved Questions
 
-1. **I/O and diagnostic abstraction** — The reference implementation injects `io` for file
-   reading, warning emission, and verbose output. The Rust library must define its own
-   abstraction. Options include: a trait object (`dyn RepoMapIO`), a callback struct, a
-   logging crate integration (e.g., `tracing`), or simply `eprintln!`/`log::warn!`. The
-   choice affects the public API surface. Resolve before implementing §3.1 file reading
-   and §13.5 warning emission.
+1. **I/O and diagnostic abstraction** — Resolved. See §14 I/O abstraction note: `tracing`
+   for diagnostics, `std::fs` for file reading.
 
+2. **Reference fallback for files with defs but no refs** — Resolved. A supplemental
+   `-idents.scm` tree-sitter query replaces the Python Pygments fallback. See §3.2.
 ---
 
 ## 16. Non-Goals
@@ -727,3 +815,77 @@ The following are explicitly out of scope for this specification:
 - Git integration (the reference uses git history only for warning messages about deleted files).
 - The interactive UI (spinner, progress callbacks) — these are implementation details for the caller. DEFERRED
 - Any output format beyond the plain-text repo map string described in §12. DEFERRED
+
+---
+
+## 17. CLI Specification
+
+### 17.1 Binary name and entry point
+
+The CLI binary MUST be named `repo-mapper`. Invocation:
+
+```
+repo-mapper [OPTIONS] [REPO_PATH]
+```
+
+`REPO_PATH` is an optional positional argument that sets the repository root. If omitted,
+root detection proceeds as described in §17.2.
+
+### 17.2 Repository root detection
+
+The root is determined in priority order:
+1. `--root <PATH>` flag (explicit override).
+2. Positional `REPO_PATH` argument.
+3. Walk parent directories from CWD looking for the first ancestor containing a `.git/`
+   directory.
+4. Fall back to CWD if no `.git/` ancestor is found.
+
+### 17.3 File enumeration
+
+When `other_fnames` is not explicitly provided by the user, the CLI MUST walk the repository
+tree from `root` to build the file list. The walk MUST:
+
+1. Respect `.gitignore` rules (using standard gitignore semantics from the root).
+2. Skip hidden directories (names starting with `.`) except where explicitly included.
+3. Follow symlinks to regular files; skip symlinks to directories.
+4. Produce paths sorted lexicographically (consistent with §2.2).
+
+### 17.4 Flags
+
+| Flag | Short | Type | Default | Maps to |
+|------|-------|------|---------|---------|
+| `--root <PATH>` | | path | (auto-detected) | `root` |
+| `--max-tokens <N>` | `-t` | int | 1024 | `map_tokens` |
+| `--max-context-window <N>` | | int | (none) | `max_context_window` |
+| `--chat-file <PATH>` | `-c` | path (repeatable) | (empty) | `chat_fnames` |
+| `--mention-file <PATH>` | `-m` | path (repeatable) | (empty) | `mentioned_fnames` |
+| `--mention-ident <NAME>` | `-i` | string (repeatable) | (empty) | `mentioned_idents` |
+| `--refresh <MODE>` | | string | `auto` | `refresh` |
+| `--force-refresh` | | bool | false | `force_refresh` |
+| `--exclude-unranked` | | bool | false | `exclude_unranked` |
+| `--max-line-length <N>` | | int | 100 | `max_line_length` |
+| `--pagerank-damping <F>` | | float | 0.85 | `pagerank_damping` |
+| `--pagerank-tol <F>` | | float | 1.0e-6 | `pagerank_tol` |
+| `--pagerank-max-iter <N>` | | int | 100 | `pagerank_max_iter` |
+| `--verbose` | `-v` | bool | false | configures tracing subscriber |
+
+`--chat-file`, `--mention-file`, and `--mention-ident` are repeatable (may be specified
+multiple times). Paths in `--chat-file` and `--mention-file` are resolved relative to CWD
+before being passed to the library.
+
+### 17.5 Output routing
+
+- The repo map string MUST be written to **stdout**.
+- All diagnostics (warnings, errors, verbose progress) MUST be written to **stderr** via the
+  `tracing-subscriber` installed at startup.
+- `--verbose` sets the tracing filter to `DEBUG`, emitting per-file scan progress, token
+  counts, and cache status. Without `--verbose`, only `WARN` and `ERROR` events are emitted.
+- `RUST_LOG` environment variable MAY override the filter level.
+
+### 17.6 Exit codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success — repo map written to stdout |
+| `1` | Fatal error — I/O failure, invalid arguments, unrecoverable parse error |
+| `2` | No map generated — token budget exhausted, no files found, or all files excluded |
