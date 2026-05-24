@@ -14,8 +14,8 @@ pub mod parser;
 pub mod queries;
 
 // Tag extraction
-mod extract;
-mod file;
+pub mod extract;
+pub mod file;
 
 // Graph construction
 mod graph;
