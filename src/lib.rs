@@ -1,14 +1,48 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+//! repo-mapper: Token-budget-respecting repository map generator.
+//!
+//! This library produces a compact textual summary of a source code repository
+//! by extracting tags with tree-sitter, building a weighted directed graph,
+//! running PageRank, and rendering ranked definitions.
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+// Core types
+mod path;
+mod tag;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+// Language support
+mod lang;
+mod parser;
+mod queries;
+
+// Tag extraction
+mod extract;
+mod file;
+
+// Graph construction
+mod graph;
+mod weight;
+
+// Important files
+mod important;
+
+// Caching
+mod cache;
+
+// Ranking
+mod rank;
+
+// Rendering
+mod render;
+
+// Token budget
+mod budget;
+mod tokens;
+
+// Public API
+mod config;
+mod edge_cases;
+mod repo_map;
+
+// Re-exports
+pub use config::{RefreshMode, RepoMapConfig};
+pub use repo_map::RepoMap;
+pub use tag::{Tag, TagKind};

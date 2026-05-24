@@ -1,6 +1,48 @@
 [package]
 name = "repo-mapper"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
+description = "Token-budget-respecting repository map generator"
+license = "MIT"
 
 [dependencies]
+# Tree-sitter parsing
+tree-sitter = "0.26"
+tree-sitter-language-pack = "1.8"  # requires tree-sitter 0.26
+
+# Compile-time maps for language detection
+phf = { version = "0.11", features = ["macros"] }
+
+# Graph algorithms
+petgraph = "0.6"
+
+# Serialization for caches
+serde = { version = "1", features = ["derive"] }
+bincode = "1"
+
+# Persistent tag cache
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# Token counting
+tiktoken-rs = "0.6"
+
+# Path handling
+pathdiff = "0.2"
+
+# Logging/diagnostics
+tracing = "0.1"
+
+# CLI (only needed by binary, but simplest to include)
+clap = { version = "4", features = ["derive"] }
+ignore = "0.4"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Error handling
+thiserror = "2"
+
+[dev-dependencies]
+tempfile = "3"
+
+[[bin]]
+name = "repo-mapper"
+path = "src/bin/repo-mapper.rs"

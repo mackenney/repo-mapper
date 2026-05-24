@@ -1,3 +1,1 @@
-fn main() {
-    println!("repo-mapper");
-}
+fn main() {}
