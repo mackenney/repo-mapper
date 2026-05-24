@@ -5,7 +5,7 @@
 //! running PageRank, and rendering ranked definitions.
 
 // Core types
-mod path;
+pub mod path;
 mod tag;
 
 // Language support
