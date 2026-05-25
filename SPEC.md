@@ -358,8 +358,51 @@ For each file (identified by `rel_fname`), compute `current_pers` as follows:
 
 Only files with `current_pers > 0` are included in the personalization dict.
 
+5. For each file in `anchor_contributions` (derived in §7.1a):
+   `current_pers += anchor_contributions[file]`.
+   This step is independent of steps 2–4; contributions are additive.
+   Anchor contributions are pre-computed weights that already incorporate the multiplier
+   and any ambiguity division (see §7.1a).
+
 The `dangling` nodes dict MUST be set equal to the personalization dict when personalization
 is non-empty.
+
+### 7.1a Anchor resolution and weight computation
+
+Before computing the personalization vector, the implementation MUST resolve anchor
+inputs to `anchor_contributions: HashMap<rel_fname, f64>`. Let `personalize = 100/N`
+and `anchor_w = anchor_weight_multiplier`.
+
+1. **`anchor_fnames`**: for each path, compute `rel_fname`. Add `personalize * anchor_w`
+   to `anchor_contributions[rel_fname]`. Additive across multiple inputs.
+
+2. **`anchor_idents`**: for each identifier, look up `tag_index.defines[ident]`.
+   - If not found: silently ignored (debug log only).
+   - If found in N_matches files: add `personalize * anchor_w / N_matches` to each
+     defining file in `anchor_contributions`.
+   - If N_matches > 1: emit a `WARN` message naming the files and suggesting
+     the `file:ident` form for disambiguation.
+
+3. **`anchor_scoped`**: for each `(path, ident)` pair, compute `rel_fname` from path,
+   add `personalize * anchor_w` to `anchor_contributions[rel_fname]`, and add `ident`
+   to a `scoped_idents` set.
+
+After resolution, `scoped_idents` MUST be merged with `mentioned_idents` before
+`build_graph` is called, so scoped identifiers receive the ×10 edge-weight boost (§6.4).
+
+Anchor resolution MUST occur after the TagIndex is built (§6.1) and before
+personalization is computed (§7.1).
+
+### 7.1b Anchor forced inclusion
+
+After building `ranked_tags` (§7.5) and prepending important files (§8.2),
+the implementation MUST extract all existing entries for anchor files from their
+natural (low) rank position and move them to the front of `ranked_tags`.
+For any anchor file with no existing entry (not in graph), a `Bare` entry with
+`score = f64::MAX` MUST be inserted at the front.
+
+This ensures anchors are always within the binary-search window regardless of budget,
+while preserving any definition tags they carry from the normal ranking pipeline.
 
 ### 7.2 PageRank algorithm
 
@@ -773,6 +816,10 @@ The Rust implementation SHOULD omit both.
 | `pagerank_damping`    | float        | 0.85      | PageRank damping factor (§7.2)                                                |
 | `pagerank_tol`        | float        | 1.0e-6    | PageRank convergence tolerance (§7.2)                                         |
 | `pagerank_max_iter`   | int          | 100       | PageRank maximum iterations (§7.2)                                            |
+| `anchor_fnames`       | Vec\<PathBuf\> | []     | Files to use as RWR restart seeds; always included in map output (§7.1a, §7.1b) |
+| `anchor_idents`       | HashSet\<String\> | {}  | Identifiers whose defining files are used as RWR restart seeds; weight divided equally when ambiguous (§7.1a) |
+| `anchor_scoped`       | Vec\<(PathBuf, String)\> | [] | File+ident pairs; file gets full anchor weight, ident gets edge-weight boost (§7.1a) |
+| `anchor_weight_multiplier` | float   | 10.0      | Personalization weight multiplier for anchor files relative to `personalize` (100/N) (§7.1a) |
 
 **`map_tokens` and `max_map_tokens`:** `map_tokens` is the constructor parameter stored at
 initialization. Internally, the algorithm references this as `max_map_tokens`. They represent
@@ -868,10 +915,18 @@ tree from `root` to build the file list. The walk MUST:
 | `--pagerank-tol <F>` | | float | 1.0e-6 | `pagerank_tol` |
 | `--pagerank-max-iter <N>` | | int | 100 | `pagerank_max_iter` |
 | `--verbose` | `-v` | bool | false | configures tracing subscriber |
+| `--progress` | `-p` | bool | false | show a spinner on stderr during map generation and print elapsed time on completion |
+| `--anchor <VALUE>` | `-a` | string (repeatable) | (empty) | `anchor_scoped`, `anchor_fnames`, or `anchor_idents` — resolved in that priority order (§7.1a) |
 
-`--chat-file`, `--mention-file`, and `--mention-ident` are repeatable (may be specified
+`--chat-file`, `--mention-file`, `--mention-ident`, and `--anchor` are repeatable (may be specified
 multiple times). Paths in `--chat-file` and `--mention-file` are resolved relative to CWD
 before being passed to the library.
+
+`--anchor` value resolution (applied in order per value):
+1. If the value contains `:` and the part before the colon resolves to an existing file
+   (absolute, CWD-relative, or root-relative): treated as `file:ident` → `anchor_scoped`.
+2. If the value resolves to an existing file: `anchor_fnames`.
+3. Otherwise: `anchor_idents` (tag-index lookup at runtime).
 
 ### 17.5 Output routing
 
