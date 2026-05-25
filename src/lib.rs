@@ -22,7 +22,7 @@ pub mod graph;
 pub mod weight;
 
 // Important files
-mod important;
+pub mod important;
 
 // Caching
 mod cache;

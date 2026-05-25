@@ -103,11 +103,11 @@ Implement repo-mapper, a Rust library and CLI that produces a token-budget-respe
 
 ## Steps
 
-- [ ] [step-01-cargo-skeleton](./step-01-cargo-skeleton.md) — Setup Cargo.toml dependencies and lib.rs module structure
-- [ ] [step-02-core-types](./step-02-core-types.md) — Tag, TagKind, and path utilities
-- [ ] [step-03-lang-registry](./step-03-lang-registry.md) — Language detection from filenames
-- [ ] [step-04-query-parser](./step-04-query-parser.md) — Query registry with bundled .scm files, parser registry
-- [ ] [step-05-tag-extraction](./step-05-tag-extraction.md) — Core tag extraction with identifier fallback
+- [x] [step-01-cargo-skeleton](./step-01-cargo-skeleton.md) — Setup Cargo.toml dependencies and lib.rs module structure
+- [x] [step-02-core-types](./step-02-core-types.md) — Tag, TagKind, and path utilities
+- [x] [step-03-lang-registry](./step-03-lang-registry.md) — Language detection from filenames
+- [x] [step-04-query-parser](./step-04-query-parser.md) — Query registry with bundled .scm files, parser registry
+- [x] [step-05-tag-extraction](./step-05-tag-extraction.md) — Core tag extraction with identifier fallback
 - [ ] [step-06-graph-construction](./step-06-graph-construction.md) — TagIndex, edge weights, Graph with petgraph
 - [ ] [step-07-important-files](./step-07-important-files.md) — Important files list and filtering
 - [ ] [step-08-tag-cache](./step-08-tag-cache.md) — Persistent tag cache with rusqlite + bincode

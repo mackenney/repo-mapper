@@ -237,8 +237,9 @@ mod tests {
             // No references to Foo
         ];
 
-        let index = TagIndex::from_tags(tags.into_iter());
+        let mut index = TagIndex::from_tags(tags.into_iter());
         // Don't apply fallback, so Foo has no references
+        let _ = &mut index; // suppress unused warning
         let mentioned = HashSet::new();
         let chat_files = HashSet::new();
 

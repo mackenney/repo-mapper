@@ -26,7 +26,7 @@ pub fn compute_edge_weight(
         mul *= 10.0;
     }
 
-    // Condition 2: length ≥8 AND meaningful identifier pattern (skip if already penalized by _-prefix)
+    // Condition 2: length ≥8 AND meaningful identifier pattern (skip if starts with "_")
     if ident.len() >= 8 && !ident.starts_with('_') && is_meaningful_ident(ident) {
         mul *= 10.0;
     }
