@@ -225,7 +225,7 @@ impl RepoMap {
         // Compute personalization
         let personalization = compute_personalization(
             rel_fnames.len(),
-            chat_fnames,
+            &chat_rel_fnames,
             &rel_fnames,
             mentioned_fnames,
             mentioned_idents,

@@ -19,7 +19,7 @@ impl TokenCounter {
     /// For texts < 200 chars: direct count.
     /// For longer texts: sample-based estimation.
     pub fn count(&self, text: &str) -> usize {
-        if text.len() < 200 {
+        if text.chars().count() < 200 {
             return self.bpe.encode_ordinary(text).len();
         }
 
@@ -50,7 +50,8 @@ impl TokenCounter {
         let sample_tokens = self.bpe.encode_ordinary(&sample_text).len();
 
         // Estimate: (sample_tokens / sample_len) * total_len
-        let estimate = (sample_tokens as f64 / sample_text.len() as f64) * text.len() as f64;
+        let estimate = (sample_tokens as f64 / sample_text.chars().count() as f64)
+            * text.chars().count() as f64;
         estimate.round() as usize
     }
 

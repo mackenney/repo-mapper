@@ -106,12 +106,18 @@ fn run(cli: &Cli) -> i32 {
     let root = detect_root(cli);
     tracing::debug!("Repository root: {}", root.display());
 
-    // Parse refresh mode (invalid value falls back to auto)
+    // Parse refresh mode — invalid value exits with code 1 per SPEC §17.6
     let refresh_mode = match cli.refresh.as_str() {
+        "auto" => RefreshMode::Auto,
         "manual" => RefreshMode::Manual,
         "always" => RefreshMode::Always,
         "files" => RefreshMode::Files,
-        _ => RefreshMode::Auto,
+        other => {
+            eprintln!(
+                "error: invalid --refresh value '{other}'. Expected: auto, manual, always, files"
+            );
+            return 1;
+        }
     };
 
     // Build RepoMap
@@ -157,11 +163,20 @@ fn run(cli: &Cli) -> i32 {
         }
     }
 
-    // Build mention sets
+    // Build mention sets — resolve paths relative to CWD then compute rel_fname against root
     let mentioned_fnames: HashSet<String> = cli
         .mention_files
         .iter()
-        .filter_map(|p| p.to_str().map(String::from))
+        .map(|p| {
+            let abs = if p.is_absolute() {
+                p.clone()
+            } else {
+                std::env::current_dir()
+                    .map(|cwd| cwd.join(p))
+                    .unwrap_or_else(|_| p.clone())
+            };
+            repo_mapper::path::rel_path(&abs, &root)
+        })
         .collect();
 
     let mentioned_idents: HashSet<String> = cli.mention_idents.iter().cloned().collect();
@@ -182,7 +197,7 @@ fn run(cli: &Cli) -> i32 {
             0
         }
         None => {
-            tracing::info!("No map generated");
+            tracing::warn!("No map generated (exit 2)");
             2
         }
     }
@@ -222,7 +237,7 @@ fn enumerate_files(root: &PathBuf) -> Vec<PathBuf> {
     let mut files = Vec::new();
 
     let walker = WalkBuilder::new(root)
-        .hidden(true)
+        .hidden(false) // don't skip dotfiles; SPEC §8.1 important files include .gitignore, .env, .travis.yml, etc.
         .git_ignore(true)
         .git_global(true)
         .git_exclude(true)

@@ -2,7 +2,6 @@
 
 use crate::path::path_components;
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
 
 /// Compute the personalization vector for PageRank.
 ///
@@ -13,7 +12,7 @@ use std::path::PathBuf;
 /// - Path components in mentioned_idents: add base
 pub fn compute_personalization(
     total_files: usize,
-    chat_fnames: &[PathBuf],
+    chat_rel_fnames: &HashSet<String>,
     rel_fnames: &[String],
     mentioned_fnames: &HashSet<String>,
     mentioned_idents: &HashSet<String>,
@@ -25,14 +24,11 @@ pub fn compute_personalization(
     let personalize = 100.0 / total_files as f64;
     let mut result: HashMap<String, f64> = HashMap::new();
 
-    // Build chat_rel_fnames set for lookup
-    let chat_rel: HashSet<&str> = chat_fnames.iter().filter_map(|p| p.to_str()).collect();
-
     for rel_fname in rel_fnames {
         let mut current_pers = 0.0;
 
         // Step 2: Chat files add personalize
-        if chat_rel.contains(rel_fname.as_str()) {
+        if chat_rel_fnames.contains(rel_fname) {
             current_pers += personalize;
         }
 
@@ -87,13 +83,15 @@ mod tests {
 
     #[test]
     fn personalization_empty() {
-        let result = compute_personalization(0, &[], &[], &HashSet::new(), &HashSet::new());
+        let result =
+            compute_personalization(0, &HashSet::new(), &[], &HashSet::new(), &HashSet::new());
         assert!(result.is_empty());
     }
 
     #[test]
     fn personalization_chat_files() {
-        let chat = vec![PathBuf::from("main.rs")];
+        let mut chat = HashSet::new();
+        chat.insert("main.rs".to_string());
         let files = vec!["main.rs".to_string(), "lib.rs".to_string()];
 
         let result = compute_personalization(2, &chat, &files, &HashSet::new(), &HashSet::new());
@@ -109,7 +107,8 @@ mod tests {
         mentioned.insert("lib.rs".to_string());
         let files = vec!["main.rs".to_string(), "lib.rs".to_string()];
 
-        let result = compute_personalization(2, &[], &files, &mentioned, &HashSet::new());
+        let result =
+            compute_personalization(2, &HashSet::new(), &files, &mentioned, &HashSet::new());
 
         assert!(result.contains_key("lib.rs"));
         assert!((result["lib.rs"] - 50.0).abs() < 0.001);
@@ -121,7 +120,7 @@ mod tests {
         idents.insert("utils".to_string());
         let files = vec!["src/utils/mod.rs".to_string()];
 
-        let result = compute_personalization(1, &[], &files, &HashSet::new(), &idents);
+        let result = compute_personalization(1, &HashSet::new(), &files, &HashSet::new(), &idents);
 
         // "utils" is in the path, so file gets personalization
         assert!(result.contains_key("src/utils/mod.rs"));
@@ -129,7 +128,8 @@ mod tests {
 
     #[test]
     fn personalization_no_double_count() {
-        let chat = vec![PathBuf::from("main.rs")];
+        let mut chat = HashSet::new();
+        chat.insert("main.rs".to_string());
         let mut mentioned = HashSet::new();
         mentioned.insert("main.rs".to_string());
         let files = vec!["main.rs".to_string()];

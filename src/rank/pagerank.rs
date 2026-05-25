@@ -85,12 +85,11 @@ pub fn pagerank(
         .filter(|&idx| graph.edges(idx).count() == 0)
         .collect();
 
-    // Initialize rank vector
-    let mut rank: HashMap<NodeIndex, f64> = pers.clone();
-    // Ensure all nodes have a rank
-    for idx in graph.node_indices() {
-        rank.entry(idx).or_insert(1.0 / n as f64);
-    }
+    // Initialize rank vector uniformly (per NetworkX reference)
+    let mut rank: HashMap<NodeIndex, f64> = graph
+        .node_indices()
+        .map(|idx| (idx, 1.0 / n as f64))
+        .collect();
 
     // Power iteration
     let d = params.damping;
@@ -101,8 +100,8 @@ pub fn pagerank(
         let dangling_sum: f64 = dangling.iter().map(|&idx| rank[&idx]).sum();
 
         for idx in graph.node_indices() {
-            // Teleport + dangling redistribution
-            let pers_val = pers.get(&idx).copied().unwrap_or(1.0 / n as f64);
+            // Absent nodes have zero teleport probability (per NetworkX p.get(n, 0))
+            let pers_val = pers.get(&idx).copied().unwrap_or(0.0);
             let mut r = (1.0 - d) * pers_val + d * dangling_sum * pers_val;
 
             // Sum contributions from incoming edges

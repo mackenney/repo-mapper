@@ -26,8 +26,8 @@ pub fn compute_edge_weight(
         mul *= 10.0;
     }
 
-    // Condition 2: length ≥8 AND meaningful identifier pattern (skip if starts with "_")
-    if ident.len() >= 8 && !ident.starts_with('_') && is_meaningful_ident(ident) {
+    // Condition 2: length ≥8 AND meaningful identifier pattern (SPEC §6.4 independent)
+    if ident.len() >= 8 && is_meaningful_ident(ident) {
         mul *= 10.0;
     }
 
@@ -145,8 +145,9 @@ mod tests {
         let mentioned = HashSet::new();
         let chat_files = HashSet::new();
         let weight = compute_edge_weight("_private", "file.rs", 1, &mentioned, &chat_files, 1);
-        // 0.1 (underscore) * sqrt(1) = 0.1
-        assert!((weight - 0.1).abs() < 0.001);
+        // SPEC §6.4: conditions 2 and 3 are independent and multiplicative
+        // _private: len=8, is_meaningful (has _) => x10; starts with _ => x0.1; net = 1.0
+        assert!((weight - 1.0).abs() < 0.001);
     }
 
     #[test]
