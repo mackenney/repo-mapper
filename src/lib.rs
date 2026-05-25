@@ -38,11 +38,11 @@ pub mod budget;
 pub mod tokens;
 
 // Public API
-mod config;
-mod edge_cases;
-mod repo_map;
+pub mod config;
+pub mod edge_cases;
+pub mod repo_map;
 
 // Re-exports
-pub use config::{RefreshMode, RepoMapConfig};
+pub use config::{RefreshMode, RepoMapConfig, RepoMapConfigBuilder};
 pub use repo_map::RepoMap;
 pub use tag::{Tag, TagKind};

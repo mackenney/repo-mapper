@@ -115,6 +115,6 @@ Implement repo-mapper, a Rust library and CLI that produces a token-budget-respe
 - [x] [step-10-pagerank](./step-10-pagerank.md) — Personalization, PageRank, rank distribution, ranked tags
 - [x] [step-11-tree-context](./step-11-tree-context.md) — TreeContext for scope-aware rendering
 - [x] [step-12-render-tree](./step-12-render-tree.md) — render_tree and to_tree with caching
-- [ ] [step-13-token-budget](./step-13-token-budget.md) — Token counting and binary search
+- [x] [step-13-token-budget](./step-13-token-budget.md) — Token counting and binary search
 - [ ] [step-14-public-api](./step-14-public-api.md) — RepoMapConfig, RepoMap, get_repo_map, edge cases
 - [ ] [step-15-cli](./step-15-cli.md) — CLI binary with clap, file enumeration, exit codes
