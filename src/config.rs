@@ -1,5 +1,6 @@
 //! Configuration types (SPEC §14).
 
+use std::collections::HashSet;
 use std::path::PathBuf;
 
 pub use crate::cache::map_cache::RefreshMode;
@@ -35,6 +36,12 @@ pub struct RepoMapConfig {
     pub pagerank_tol: f64,
     /// PageRank maximum iterations (default: 100)
     pub pagerank_max_iter: usize,
+    /// Anchor files: always included in map, used as RWR restart seeds (SPEC §7.1a)
+    pub anchor_fnames: Vec<PathBuf>,
+    /// Anchor identifiers: defining files used as RWR restart seeds (SPEC §7.1a)
+    pub anchor_idents: HashSet<String>,
+    /// Personalization weight multiplier for anchor files (SPEC §7.1, default: 10.0)
+    pub anchor_weight_multiplier: f64,
 }
 
 impl Default for RepoMapConfig {
@@ -54,6 +61,9 @@ impl Default for RepoMapConfig {
             pagerank_damping: 0.85,
             pagerank_tol: 1e-6,
             pagerank_max_iter: 100,
+            anchor_fnames: Vec::new(),
+            anchor_idents: HashSet::new(),
+            anchor_weight_multiplier: 10.0,
         }
     }
 }
@@ -139,6 +149,21 @@ impl RepoMapConfigBuilder {
 
     pub fn pagerank_max_iter(mut self, n: usize) -> Self {
         self.config.pagerank_max_iter = n;
+        self
+    }
+
+    pub fn anchor_fnames(mut self, fnames: Vec<std::path::PathBuf>) -> Self {
+        self.config.anchor_fnames = fnames;
+        self
+    }
+
+    pub fn anchor_idents(mut self, idents: std::collections::HashSet<String>) -> Self {
+        self.config.anchor_idents = idents;
+        self
+    }
+
+    pub fn anchor_weight_multiplier(mut self, m: f64) -> Self {
+        self.config.anchor_weight_multiplier = m;
         self
     }
 

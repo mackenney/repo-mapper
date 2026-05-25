@@ -40,6 +40,7 @@ pub struct FilesKey {
 }
 
 /// Auto mode cache key (SPEC §11).
+/// Auto mode cache key (SPEC §11).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AutoKey {
     pub chat_fnames: Option<Vec<PathBuf>>,
@@ -47,6 +48,8 @@ pub struct AutoKey {
     pub max_tokens: usize,
     pub mentioned_fnames: Option<Vec<String>>,
     pub mentioned_idents: Option<Vec<String>>,
+    pub anchor_fnames: Option<Vec<PathBuf>>,
+    pub anchor_idents: Option<Vec<String>>,
 }
 
 impl MapCacheKey {
@@ -66,6 +69,8 @@ impl MapCacheKey {
         max_tokens: usize,
         mentioned_fnames: &HashSet<String>,
         mentioned_idents: &HashSet<String>,
+        anchor_fnames: &[PathBuf],
+        anchor_idents: &HashSet<String>,
     ) -> Self {
         MapCacheKey::Auto(AutoKey {
             chat_fnames: non_empty_sorted(chat_fnames),
@@ -73,6 +78,8 @@ impl MapCacheKey {
             max_tokens,
             mentioned_fnames: non_empty_sorted_set(mentioned_fnames),
             mentioned_idents: non_empty_sorted_set(mentioned_idents),
+            anchor_fnames: non_empty_sorted(anchor_fnames),
+            anchor_idents: non_empty_sorted_set(anchor_idents),
         })
     }
 }
@@ -262,6 +269,8 @@ mod tests {
             &[],
             1024,
             &HashSet::new(),
+            &HashSet::new(),
+            &[],
             &HashSet::new(),
         );
 

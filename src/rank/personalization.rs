@@ -10,12 +10,15 @@ use std::collections::{HashMap, HashSet};
 /// - Chat files: add base
 /// - Mentioned files: max(current, base)
 /// - Path components in mentioned_idents: add base
+/// - Anchor files (SPEC §7.1 step 5): add base * anchor_weight_multiplier
 pub fn compute_personalization(
     total_files: usize,
     chat_rel_fnames: &HashSet<String>,
     rel_fnames: &[String],
     mentioned_fnames: &HashSet<String>,
     mentioned_idents: &HashSet<String>,
+    anchor_rel_fnames: &HashSet<String>,
+    anchor_weight_multiplier: f64,
 ) -> HashMap<String, f64> {
     if total_files == 0 {
         return HashMap::new();
@@ -68,9 +71,22 @@ pub fn compute_personalization(
             current_pers += personalize;
         }
 
+        // Step 5: Anchor files (SPEC §7.1 step 5) — additive, independent of prior steps.
+        if anchor_rel_fnames.contains(rel_fname) {
+            current_pers += personalize * anchor_weight_multiplier;
+        }
+
         // Only include files with positive personalization
         if current_pers > 0.0 {
             result.insert(rel_fname.clone(), current_pers);
+        }
+    }
+
+    // Anchor files may not be in rel_fnames (e.g. resolved from anchor_idents pointing to
+    // a file outside other_fnames). Add them directly so they always appear in the vector.
+    for anchor in anchor_rel_fnames {
+        if !result.contains_key(anchor) {
+            result.insert(anchor.clone(), personalize * anchor_weight_multiplier);
         }
     }
 
@@ -83,8 +99,15 @@ mod tests {
 
     #[test]
     fn personalization_empty() {
-        let result =
-            compute_personalization(0, &HashSet::new(), &[], &HashSet::new(), &HashSet::new());
+        let result = compute_personalization(
+            0,
+            &HashSet::new(),
+            &[],
+            &HashSet::new(),
+            &HashSet::new(),
+            &HashSet::new(),
+            10.0,
+        );
         assert!(result.is_empty());
     }
 
@@ -94,7 +117,15 @@ mod tests {
         chat.insert("main.rs".to_string());
         let files = vec!["main.rs".to_string(), "lib.rs".to_string()];
 
-        let result = compute_personalization(2, &chat, &files, &HashSet::new(), &HashSet::new());
+        let result = compute_personalization(
+            2,
+            &chat,
+            &files,
+            &HashSet::new(),
+            &HashSet::new(),
+            &HashSet::new(),
+            10.0,
+        );
 
         assert!(result.contains_key("main.rs"));
         assert!(!result.contains_key("lib.rs")); // Not a chat file
@@ -107,8 +138,15 @@ mod tests {
         mentioned.insert("lib.rs".to_string());
         let files = vec!["main.rs".to_string(), "lib.rs".to_string()];
 
-        let result =
-            compute_personalization(2, &HashSet::new(), &files, &mentioned, &HashSet::new());
+        let result = compute_personalization(
+            2,
+            &HashSet::new(),
+            &files,
+            &mentioned,
+            &HashSet::new(),
+            &HashSet::new(),
+            10.0,
+        );
 
         assert!(result.contains_key("lib.rs"));
         assert!((result["lib.rs"] - 50.0).abs() < 0.001);
@@ -120,7 +158,15 @@ mod tests {
         idents.insert("utils".to_string());
         let files = vec!["src/utils/mod.rs".to_string()];
 
-        let result = compute_personalization(1, &HashSet::new(), &files, &HashSet::new(), &idents);
+        let result = compute_personalization(
+            1,
+            &HashSet::new(),
+            &files,
+            &HashSet::new(),
+            &idents,
+            &HashSet::new(),
+            10.0,
+        );
 
         // "utils" is in the path, so file gets personalization
         assert!(result.contains_key("src/utils/mod.rs"));
@@ -134,9 +180,60 @@ mod tests {
         mentioned.insert("main.rs".to_string());
         let files = vec!["main.rs".to_string()];
 
-        let result = compute_personalization(1, &chat, &files, &mentioned, &HashSet::new());
+        let result = compute_personalization(
+            1,
+            &chat,
+            &files,
+            &mentioned,
+            &HashSet::new(),
+            &HashSet::new(),
+            10.0,
+        );
 
         // Should be max(100, 100) = 100, not 200
         assert!((result["main.rs"] - 100.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn personalization_anchor_files() {
+        let mut anchors = HashSet::new();
+        anchors.insert("entry.rs".to_string());
+        let files = vec!["entry.rs".to_string(), "lib.rs".to_string()];
+
+        let result = compute_personalization(
+            2,
+            &HashSet::new(),
+            &files,
+            &HashSet::new(),
+            &HashSet::new(),
+            &anchors,
+            10.0,
+        );
+
+        // entry.rs gets 10x boost: 10 * (100/2) = 500
+        assert!(result.contains_key("entry.rs"));
+        assert!((result["entry.rs"] - 500.0).abs() < 0.001);
+        assert!(!result.contains_key("lib.rs"));
+    }
+
+    #[test]
+    fn personalization_anchor_not_in_rel_fnames() {
+        // Anchor resolved from ident may not be in other_fnames
+        let mut anchors = HashSet::new();
+        anchors.insert("external.rs".to_string());
+        let files = vec!["main.rs".to_string()];
+
+        let result = compute_personalization(
+            1,
+            &HashSet::new(),
+            &files,
+            &HashSet::new(),
+            &HashSet::new(),
+            &anchors,
+            10.0,
+        );
+
+        // external.rs gets inserted directly
+        assert!(result.contains_key("external.rs"));
     }
 }

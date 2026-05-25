@@ -4,15 +4,15 @@ use crate::budget::{binary_search_budget, compute_effective_max};
 use crate::cache::map_cache::{MapCache, MapCacheKey, RefreshMode};
 use crate::cache::tag_cache::TagCache;
 use crate::config::RepoMapConfig;
-use crate::edge_cases::{substitute_prefix, WarnedFiles};
+use crate::edge_cases::{WarnedFiles, substitute_prefix};
 use crate::extract::extract_tags;
 use crate::file::{get_mtime, is_regular_file, read_file_utf8};
-use crate::graph::{build_graph, TagIndex};
+use crate::graph::{TagIndex, build_graph};
 use crate::important::filter_important_files;
 use crate::path::rel_path;
 use crate::rank::{
-    build_ranked_tags, compute_personalization, distribute_rank, pagerank, PageRankParams,
-    RankedEntry,
+    PageRankParams, RankedEntry, build_ranked_tags, compute_personalization, distribute_rank,
+    pagerank,
 };
 use crate::render::{TreeCache, TreeContextCache};
 use crate::tokens::TokenCounter;
@@ -91,6 +91,7 @@ impl RepoMap {
         );
 
         // Build cache key
+        // Build cache key
         let cache_key = if self.config.refresh == RefreshMode::Auto {
             MapCacheKey::auto(
                 chat_fnames,
@@ -98,6 +99,8 @@ impl RepoMap {
                 effective_max,
                 mentioned_fnames,
                 mentioned_idents,
+                &self.config.anchor_fnames,
+                &self.config.anchor_idents,
             )
         } else {
             MapCacheKey::files(chat_fnames, other_fnames, effective_max)
@@ -214,6 +217,24 @@ impl RepoMap {
         let mut tag_index = TagIndex::from_tags(all_tags.into_iter());
         tag_index.apply_no_reference_fallback();
 
+        // Resolve anchor inputs to rel_fnames (SPEC §7.1a).
+        // Must happen after tag index is built so we can look up which file defines each ident.
+        let anchor_rel_fnames: HashSet<String> =
+            self.config
+                .anchor_fnames
+                .iter()
+                .map(|p| rel_path(p, &self.config.root))
+                .chain(
+                    self.config.anchor_idents.iter().flat_map(|ident| {
+                        tag_index.defines.get(ident).into_iter().flatten().cloned()
+                    }),
+                )
+                .collect();
+
+        if !anchor_rel_fnames.is_empty() {
+            debug!("Anchor files resolved: {:?}", anchor_rel_fnames);
+        }
+
         // Build graph
         let graph = build_graph(
             &tag_index,
@@ -222,15 +243,16 @@ impl RepoMap {
             self.config.self_edge_weight,
         );
 
-        // Compute personalization
+        // Compute personalization (includes anchor step, SPEC §7.1 step 5)
         let personalization = compute_personalization(
             rel_fnames.len(),
             &chat_rel_fnames,
             &rel_fnames,
             mentioned_fnames,
             mentioned_idents,
+            &anchor_rel_fnames,
+            self.config.anchor_weight_multiplier,
         );
-
         // Run PageRank
         let params = PageRankParams {
             damping: self.config.pagerank_damping,
@@ -284,6 +306,23 @@ impl RepoMap {
             .collect();
         important_entries.append(&mut ranked_tags);
         ranked_tags = important_entries;
+
+        // Prepend anchor files (SPEC §7.1b) — guaranteed inclusion regardless of budget.
+        // Mirrors the important-files mechanism: bare entry with score=f64::MAX at the front.
+        if !anchor_rel_fnames.is_empty() {
+            let already_included: HashSet<&str> =
+                ranked_tags.iter().map(|e| e.rel_fname()).collect();
+            let mut anchor_entries: Vec<RankedEntry> = anchor_rel_fnames
+                .iter()
+                .filter(|f| !already_included.contains(f.as_str()))
+                .map(|f| RankedEntry::Bare {
+                    rel_fname: f.clone(),
+                    score: f64::MAX,
+                })
+                .collect();
+            anchor_entries.append(&mut ranked_tags);
+            ranked_tags = anchor_entries;
+        }
 
         // Binary search for budget
         binary_search_budget(

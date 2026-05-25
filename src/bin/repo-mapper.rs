@@ -5,7 +5,7 @@ use ignore::WalkBuilder;
 use repo_mapper::{RefreshMode, RepoMapConfig};
 use std::collections::HashSet;
 use std::path::PathBuf;
-use tracing_subscriber::{fmt, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt};
 
 /// Generate a token-budget-respecting repository map.
 #[derive(Parser, Debug)]
@@ -38,6 +38,12 @@ struct Cli {
     /// Mentioned identifier
     #[arg(short = 'i', long = "mention-ident", action = ArgAction::Append)]
     mention_idents: Vec<String>,
+
+    /// Anchor: file or identifier to use as RWR seed (always appears in map).
+    /// If the value resolves to an existing file path, treated as anchor file;
+    /// otherwise treated as an anchor identifier (looked up in tag index).
+    #[arg(short = 'a', long = "anchor", action = ArgAction::Append)]
+    anchors: Vec<String>,
 
     /// Cache refresh mode
     #[arg(long, default_value = "auto")]
@@ -120,6 +126,23 @@ fn run(cli: &Cli) -> i32 {
         }
     };
 
+    // Resolve anchor inputs: file path → anchor_fnames, identifier → anchor_idents
+    let cwd = std::env::current_dir().unwrap_or_default();
+    let mut anchor_fnames: Vec<PathBuf> = Vec::new();
+    let mut anchor_idents: HashSet<String> = HashSet::new();
+    for val in &cli.anchors {
+        let candidate = if std::path::Path::new(val).is_absolute() {
+            PathBuf::from(val)
+        } else {
+            cwd.join(val)
+        };
+        if candidate.exists() {
+            anchor_fnames.push(candidate);
+        } else {
+            anchor_idents.insert(val.clone());
+        }
+    }
+
     // Build RepoMap
     let mut repo_map = RepoMapConfig::builder()
         .root(root.clone())
@@ -133,6 +156,8 @@ fn run(cli: &Cli) -> i32 {
         .pagerank_tol(cli.pagerank_tol)
         .pagerank_max_iter(cli.pagerank_max_iter)
         .verbose(cli.verbose)
+        .anchor_fnames(anchor_fnames)
+        .anchor_idents(anchor_idents)
         .build();
 
     // Enumerate files (SPEC §17.3)
