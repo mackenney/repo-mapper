@@ -1,7 +1,7 @@
 //! Binary search for token budget (SPEC §10.2).
 
 use crate::rank::RankedEntry;
-use crate::render::{TreeCache, TreeContextCache, to_tree};
+use crate::render::{to_tree, TreeCache, TreeContextCache};
 use crate::tokens::TokenCounter;
 use std::collections::HashSet;
 

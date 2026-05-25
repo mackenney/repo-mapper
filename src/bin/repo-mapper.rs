@@ -5,7 +5,7 @@ use ignore::WalkBuilder;
 use repo_mapper::{RefreshMode, RepoMapConfig};
 use std::collections::HashSet;
 use std::path::PathBuf;
-use tracing_subscriber::{EnvFilter, fmt};
+use tracing_subscriber::{fmt, EnvFilter};
 
 /// Generate a token-budget-respecting repository map.
 #[derive(Parser, Debug)]
