@@ -2,10 +2,12 @@
 
 use clap::{ArgAction, Parser};
 use ignore::WalkBuilder;
+use indicatif::{ProgressBar, ProgressStyle};
 use repo_mapper::{RefreshMode, RepoMapConfig};
 use std::collections::HashSet;
 use std::path::PathBuf;
-use tracing_subscriber::{EnvFilter, fmt};
+use std::time::Duration;
+use tracing_subscriber::{fmt, EnvFilter};
 
 /// Generate a token-budget-respecting repository map.
 #[derive(Parser, Debug)]
@@ -76,6 +78,10 @@ struct Cli {
     /// Verbose output
     #[arg(short = 'v', long)]
     verbose: bool,
+
+    /// Show progress on stderr
+    #[arg(short = 'p', long)]
+    progress: bool,
 }
 
 fn main() {
@@ -84,6 +90,20 @@ fn main() {
 
     let exit_code = run(&cli);
     std::process::exit(exit_code);
+}
+
+/// Spinner for progress reporting.
+fn make_spinner(msg: &str) -> ProgressBar {
+    let pb = ProgressBar::new_spinner();
+    pb.set_style(
+        ProgressStyle::default_spinner()
+            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
+            .template("{spinner:.cyan} {msg}")
+            .unwrap(),
+    );
+    pb.enable_steady_tick(Duration::from_millis(80));
+    pb.set_message(msg.to_string());
+    pb
 }
 
 /// Set up tracing subscriber.
@@ -175,7 +195,15 @@ fn run(cli: &Cli) -> i32 {
         .build();
 
     // Enumerate files (SPEC §17.3)
-    let other_fnames = enumerate_files(&root);
+    let other_fnames = if cli.progress {
+        let pb = make_spinner("Scanning repository...");
+        let files = enumerate_files(&root);
+        pb.finish_and_clear();
+        eprintln!("✓ Found {} files", files.len());
+        files
+    } else {
+        enumerate_files(&root)
+    };
     if other_fnames.is_empty() {
         tracing::warn!("No files found in repository");
         return 2;
@@ -221,12 +249,31 @@ fn run(cli: &Cli) -> i32 {
     let mentioned_idents: HashSet<String> = cli.mention_idents.iter().cloned().collect();
 
     // Generate repo map
-    match repo_map.get_repo_map(
-        &chat_fnames,
-        &other_fnames,
-        &mentioned_fnames,
-        &mentioned_idents,
-    ) {
+    let map_result = if cli.progress {
+        let pb = make_spinner("Generating repo map...");
+        let t0 = std::time::Instant::now();
+        let r = repo_map.get_repo_map(
+            &chat_fnames,
+            &other_fnames,
+            &mentioned_fnames,
+            &mentioned_idents,
+        );
+        let elapsed = t0.elapsed();
+        pb.finish_and_clear();
+        match &r {
+            Some(_) => eprintln!("✓ Done  ({:.1}s)", elapsed.as_secs_f64()),
+            None => eprintln!("✗ No map generated  ({:.1}s)", elapsed.as_secs_f64()),
+        }
+        r
+    } else {
+        repo_map.get_repo_map(
+            &chat_fnames,
+            &other_fnames,
+            &mentioned_fnames,
+            &mentioned_idents,
+        )
+    };
+    match map_result {
         Some(map) => {
             use std::io::Write;
             if let Err(e) = std::io::stdout().write_all(map.as_bytes()) {
