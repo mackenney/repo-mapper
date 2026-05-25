@@ -18,8 +18,8 @@ pub mod extract;
 pub mod file;
 
 // Graph construction
-mod graph;
-mod weight;
+pub mod graph;
+pub mod weight;
 
 // Important files
 mod important;
