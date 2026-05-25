@@ -28,7 +28,7 @@ pub mod important;
 pub mod cache;
 
 // Ranking
-mod rank;
+pub mod rank;
 
 // Rendering
 mod render;
