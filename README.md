@@ -11,8 +11,8 @@ repo-mapper adds an **anchor** input not present in the original aider implement
 Anchors designate one or more files or identifiers as the starting point for the map. The ranking algorithm becomes Random Walk with Restart (RWR) seeded at the anchor, which guarantees that even nodes with no incoming edges (Celery tasks, CLI handlers, HTTP handlers, plugin hooks) accumulate rank and appear in the map alongside their dependency cone.
 
 ```
-repo-mapper -a process_job              # anchor by identifier
-repo-mapper -a apps/tasks.py            # anchor by file
+repo-mapper -a process_job                # anchor by identifier
+repo-mapper -a apps/tasks.py              # anchor by file
 repo-mapper -a apps/tasks.py:process_job  # anchor by file + ident (scoped)
 ```
 
@@ -29,11 +29,9 @@ Key flags:
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--max-tokens <N>` | `-t` | Token budget for the map (default: 1024) |
-| `--chat-file <PATH>` | `-c` | File being edited (repeatable) |
-| `--mention-ident <NAME>` | `-i` | Boost an identifier (repeatable) |
 | `--anchor <VALUE>` | `-a` | Anchor file or identifier for RWR seeding (repeatable) |
-| `--verbose` | `-v` | Debug diagnostics on stderr |
-| `--progress` | `-p` | Spinner and elapsed time on stderr |
+| `--mention-file <PATH>` | `-m` | Boost a file's relevance without excluding it (repeatable) |
+| `--mention-ident <NAME>` | `-i` | Boost an identifier's defining file (repeatable) |
 
 See `SPEC.md` for the full behavioral specification.
 

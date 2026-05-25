@@ -9,77 +9,98 @@ use std::path::PathBuf;
 use std::time::Duration;
 use tracing_subscriber::{fmt, EnvFilter};
 
-/// Generate a token-budget-respecting repository map.
+/// An aider-style repo map: a compact, token-budget-respecting summary of a codebase.
+///
+/// Parses every source file with tree-sitter to extract definitions and references,
+/// builds a weighted file-dependency graph, and ranks files with Personalized PageRank.
+/// The top-ranked definitions are rendered as a structured text map and written to stdout.
+/// Token budget is enforced via binary search so the output always fits within --max-tokens.
+/// All diagnostics and progress output go to stderr.
+///
+/// Anchor mode (-a) reseeds the ranking from a specific file or identifier (Random Walk
+/// with Restart). Unlike -c/-m/-i which only nudge weights, anchors guarantee the target
+/// and its entire dependency cone appear in the map — even for entrypoints with zero
+/// callers (Celery tasks, HTTP handlers, CLI commands, plugin hooks). Use 'file.rs:fn_name'
+/// to anchor on a specific function and give it an extra edge-weight boost.
 #[derive(Parser, Debug)]
-#[command(name = "repo-mapper", about = "Generate a repo map")]
+#[command(
+    name = "repo-mapper",
+    about = "Aider-style repo map: ranked structural summary of a codebase"
+)]
 struct Cli {
-    /// Repository root path
+    /// Repository root. Auto-detected by walking up from CWD to find the nearest .git/ ancestor.
     #[arg(value_name = "REPO_PATH")]
     repo_path: Option<PathBuf>,
 
-    /// Repository root (explicit override)
+    /// Override repository root (highest priority; overrides REPO_PATH and .git detection).
     #[arg(long)]
     root: Option<PathBuf>,
 
-    /// Maximum tokens in output
+    /// Maximum tokens in the map output. The binary search fits as many ranked definitions as possible within this budget.
     #[arg(short = 't', long = "max-tokens", default_value = "1024")]
     max_tokens: usize,
 
-    /// LLM context window size
+    /// LLM context window size. When set and no chat files are open, the token budget is multiplied by 8 to fill available space.
     #[arg(long)]
     max_context_window: Option<usize>,
 
-    /// Chat file (active editing)
-    #[arg(short = 'c', long = "chat-file", action = ArgAction::Append)]
+    /// File you are actively editing. Excluded from the map output; its references shape the ranking (repeatable).
+    #[arg(short = 'c', long = "chat-file", value_name = "PATH", action = ArgAction::Append)]
     chat_files: Vec<PathBuf>,
 
-    /// Mentioned file
-    #[arg(short = 'm', long = "mention-file", action = ArgAction::Append)]
+    /// Boost a file's relevance without excluding it from the map (repeatable).
+    #[arg(short = 'm', long = "mention-file", value_name = "PATH", action = ArgAction::Append)]
     mention_files: Vec<PathBuf>,
 
-    /// Mentioned identifier
-    #[arg(short = 'i', long = "mention-ident", action = ArgAction::Append)]
+    /// Boost an identifier's defining file by increasing edge weights to it (repeatable).
+    #[arg(short = 'i', long = "mention-ident", value_name = "NAME", action = ArgAction::Append)]
     mention_idents: Vec<String>,
 
-    /// Anchor: file or identifier to use as RWR seed (always appears in map).
-    /// If the value resolves to an existing file path, treated as anchor file;
-    /// otherwise treated as an anchor identifier (looked up in tag index).
-    #[arg(short = 'a', long = "anchor", action = ArgAction::Append)]
+    /// Anchor the map on a file or identifier so its dependency cone ranks first (repeatable).
+    /// Anchors are always included regardless of token budget.
+    ///
+    /// 'file.rs:fn_name' → scoped anchor (file included + edge-weight boost for ident)
+    ///
+    /// 'path/file.rs' → anchor file
+    ///
+    /// 'process_job' → anchor identifier (tag-index lookup at runtime)
+    #[arg(short = 'a', long = "anchor", value_name = "FILE_OR_IDENT", action = ArgAction::Append)]
     anchors: Vec<String>,
 
-    /// Cache refresh mode
-    #[arg(long, default_value = "auto")]
+    /// Map cache refresh mode: auto (reuse unless inputs changed), always (recompute every run),
+    ///                          manual (never recompute), files (recompute when file list changes).
+    #[arg(long, default_value = "auto", value_name = "MODE")]
     refresh: String,
 
-    /// Force cache recomputation
+    /// Bypass the cache and force map recomputation even if inputs are unchanged.
     #[arg(long)]
     force_refresh: bool,
 
-    /// Exclude unranked files
+    /// Omit files whose PageRank score is ≤ 0.0001 (files with no significant connections).
     #[arg(long)]
     exclude_unranked: bool,
 
-    /// Maximum line length
+    /// Truncate output lines longer than this many characters.
     #[arg(long, default_value = "100")]
     max_line_length: usize,
 
-    /// PageRank damping factor
+    /// PageRank damping factor (probability of following an edge vs. restarting).
     #[arg(long, default_value = "0.85")]
     pagerank_damping: f64,
 
-    /// PageRank convergence tolerance
+    /// PageRank convergence tolerance (stop iterating when per-node delta < this value).
     #[arg(long, default_value = "1e-6")]
     pagerank_tol: f64,
 
-    /// PageRank maximum iterations
+    /// PageRank maximum iterations before forced stop.
     #[arg(long, default_value = "100")]
     pagerank_max_iter: usize,
 
-    /// Verbose output
+    /// Emit debug diagnostics to stderr: file scan progress, token counts, cache status.
     #[arg(short = 'v', long)]
     verbose: bool,
 
-    /// Show progress on stderr
+    /// Show a progress spinner and elapsed time on stderr while the map is generated.
     #[arg(short = 'p', long)]
     progress: bool,
 }
