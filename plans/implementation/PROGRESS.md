@@ -1,7 +1,7 @@
 # PROGRESS.md
 
 ## Status
-In Progress
+Complete
 
 ## Objective
 Implement repo-mapper, a Rust library and CLI that produces a token-budget-respecting textual summary of a source code repository by extracting tags with tree-sitter, building a weighted directed graph, running PageRank, and rendering ranked definitions.
@@ -117,4 +117,4 @@ Implement repo-mapper, a Rust library and CLI that produces a token-budget-respe
 - [x] [step-12-render-tree](./step-12-render-tree.md) — render_tree and to_tree with caching
 - [x] [step-13-token-budget](./step-13-token-budget.md) — Token counting and binary search
 - [x] [step-14-public-api](./step-14-public-api.md) — RepoMapConfig, RepoMap, get_repo_map, edge cases
-- [ ] [step-15-cli](./step-15-cli.md) — CLI binary with clap, file enumeration, exit codes
+- [x] [step-15-cli](./step-15-cli.md) — CLI binary with clap, file enumeration, exit codes
