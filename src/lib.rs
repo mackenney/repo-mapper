@@ -34,8 +34,8 @@ pub mod rank;
 pub mod render;
 
 // Token budget
-mod budget;
-mod tokens;
+pub mod budget;
+pub mod tokens;
 
 // Public API
 mod config;
