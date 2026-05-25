@@ -112,7 +112,7 @@ Implement repo-mapper, a Rust library and CLI that produces a token-budget-respe
 - [x] [step-07-important-files](./step-07-important-files.md) — Important files list and filtering
 - [x] [step-08-tag-cache](./step-08-tag-cache.md) — Persistent tag cache with rusqlite + bincode
 - [x] [step-09-map-cache](./step-09-map-cache.md) — In-memory map cache with refresh policies
-- [ ] [step-10-pagerank](./step-10-pagerank.md) — Personalization, PageRank, rank distribution, ranked tags
+- [x] [step-10-pagerank](./step-10-pagerank.md) — Personalization, PageRank, rank distribution, ranked tags
 - [ ] [step-11-tree-context](./step-11-tree-context.md) — TreeContext for scope-aware rendering
 - [ ] [step-12-render-tree](./step-12-render-tree.md) — render_tree and to_tree with caching
 - [ ] [step-13-token-budget](./step-13-token-budget.md) — Token counting and binary search

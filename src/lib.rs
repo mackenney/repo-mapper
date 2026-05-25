@@ -31,7 +31,7 @@ pub mod cache;
 pub mod rank;
 
 // Rendering
-mod render;
+pub mod render;
 
 // Token budget
 mod budget;
