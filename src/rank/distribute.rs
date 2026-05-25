@@ -174,7 +174,6 @@ pub fn build_ranked_tags(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tag::{Tag, TagKind};
 
     #[test]
     fn distribute_rank_basic() {
