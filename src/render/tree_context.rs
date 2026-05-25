@@ -20,6 +20,7 @@ use tree_sitter::{Node, Tree};
 /// - mark_lois = false
 /// - loi_pad = 0
 /// - show_top_of_file_parent_scope = false
+#[derive(Debug)]
 pub struct TreeContext {
     /// Source lines (split by newline)
     lines: Vec<String>,
