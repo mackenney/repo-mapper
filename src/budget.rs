@@ -115,7 +115,6 @@ pub fn compute_effective_max(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tag::Tag;
 
     fn make_bare(rel: &str) -> RankedEntry {
         RankedEntry::Bare {

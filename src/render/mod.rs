@@ -192,6 +192,7 @@ mod tests {
     use super::*;
     use crate::tag::Tag;
 
+    #[allow(dead_code)]
     fn make_tagged(rel: &str, abs: &str, lines: &[i32]) -> RankedEntry {
         let tags: Vec<Tag> = lines
             .iter()
