@@ -25,7 +25,7 @@ pub mod weight;
 pub mod important;
 
 // Caching
-mod cache;
+pub mod cache;
 
 // Ranking
 mod rank;

@@ -108,8 +108,8 @@ Implement repo-mapper, a Rust library and CLI that produces a token-budget-respe
 - [x] [step-03-lang-registry](./step-03-lang-registry.md) — Language detection from filenames
 - [x] [step-04-query-parser](./step-04-query-parser.md) — Query registry with bundled .scm files, parser registry
 - [x] [step-05-tag-extraction](./step-05-tag-extraction.md) — Core tag extraction with identifier fallback
-- [ ] [step-06-graph-construction](./step-06-graph-construction.md) — TagIndex, edge weights, Graph with petgraph
-- [ ] [step-07-important-files](./step-07-important-files.md) — Important files list and filtering
+- [x] [step-06-graph-construction](./step-06-graph-construction.md) — TagIndex, edge weights, Graph with petgraph
+- [x] [step-07-important-files](./step-07-important-files.md) — Important files list and filtering
 - [ ] [step-08-tag-cache](./step-08-tag-cache.md) — Persistent tag cache with rusqlite + bincode
 - [ ] [step-09-map-cache](./step-09-map-cache.md) — In-memory map cache with refresh policies
 - [ ] [step-10-pagerank](./step-10-pagerank.md) — Personalization, PageRank, rank distribution, ranked tags
