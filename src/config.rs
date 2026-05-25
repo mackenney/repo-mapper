@@ -40,6 +40,9 @@ pub struct RepoMapConfig {
     pub anchor_fnames: Vec<PathBuf>,
     /// Anchor identifiers: defining files used as RWR restart seeds (SPEC §7.1a)
     pub anchor_idents: HashSet<String>,
+    /// Scoped anchors: file + ident pairs (-a file.py:my_fn). File becomes the RWR seed;
+    /// ident gets edge-weight boost as if passed to -i (SPEC §7.1a)
+    pub anchor_scoped: Vec<(PathBuf, String)>,
     /// Personalization weight multiplier for anchor files (SPEC §7.1, default: 10.0)
     pub anchor_weight_multiplier: f64,
 }
@@ -63,6 +66,7 @@ impl Default for RepoMapConfig {
             pagerank_max_iter: 100,
             anchor_fnames: Vec::new(),
             anchor_idents: HashSet::new(),
+            anchor_scoped: Vec::new(),
             anchor_weight_multiplier: 10.0,
         }
     }
@@ -159,6 +163,11 @@ impl RepoMapConfigBuilder {
 
     pub fn anchor_idents(mut self, idents: std::collections::HashSet<String>) -> Self {
         self.config.anchor_idents = idents;
+        self
+    }
+
+    pub fn anchor_scoped(mut self, scoped: Vec<(std::path::PathBuf, String)>) -> Self {
+        self.config.anchor_scoped = scoped;
         self
     }
 

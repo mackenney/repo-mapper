@@ -10,15 +10,15 @@ use std::collections::{HashMap, HashSet};
 /// - Chat files: add base
 /// - Mentioned files: max(current, base)
 /// - Path components in mentioned_idents: add base
-/// - Anchor files (SPEC §7.1 step 5): add base * anchor_weight_multiplier
+/// - Anchor contributions (SPEC §7.1 step 5): add pre-computed per-file weight.
+///   Weights already incorporate the multiplier and any ambiguity division; see §7.1a.
 pub fn compute_personalization(
     total_files: usize,
     chat_rel_fnames: &HashSet<String>,
     rel_fnames: &[String],
     mentioned_fnames: &HashSet<String>,
     mentioned_idents: &HashSet<String>,
-    anchor_rel_fnames: &HashSet<String>,
-    anchor_weight_multiplier: f64,
+    anchor_contributions: &HashMap<String, f64>,
 ) -> HashMap<String, f64> {
     if total_files == 0 {
         return HashMap::new();
@@ -48,13 +48,11 @@ pub fn compute_personalization(
         // All checks are independent; at most one +personalize is added total for step 4.
         let mut path_matched = false;
         for component in path_components(rel_fname) {
-            // covers: directory parts AND basename with extension
             if mentioned_idents.contains(component) {
                 path_matched = true;
                 break;
             }
         }
-        // Also check basename without extension (file stem)
         if !path_matched {
             if let Some(stem) = std::path::Path::new(rel_fname)
                 .file_stem()
@@ -65,28 +63,26 @@ pub fn compute_personalization(
                 }
             }
         }
-        // NOTE: personalize added once regardless of whether steps 2/3 already fired.
-        // Steps 2, 3, and 4 are independent per SPEC §7.1.
         if path_matched {
             current_pers += personalize;
         }
 
-        // Step 5: Anchor files (SPEC §7.1 step 5) — additive, independent of prior steps.
-        if anchor_rel_fnames.contains(rel_fname) {
-            current_pers += personalize * anchor_weight_multiplier;
+        // Step 5: Anchor contributions (SPEC §7.1 step 5).
+        // Pre-computed in compute_map; already incorporates multiplier and ambiguity division.
+        if let Some(&contrib) = anchor_contributions.get(rel_fname) {
+            current_pers += contrib;
         }
 
-        // Only include files with positive personalization
         if current_pers > 0.0 {
             result.insert(rel_fname.clone(), current_pers);
         }
     }
 
-    // Anchor files may not be in rel_fnames (e.g. resolved from anchor_idents pointing to
-    // a file outside other_fnames). Add them directly so they always appear in the vector.
-    for anchor in anchor_rel_fnames {
+    // Anchor files resolved from idents may not be in rel_fnames (e.g. not in other_fnames).
+    // Insert them directly so they always participate in the restart vector.
+    for (anchor, &contrib) in anchor_contributions {
         if !result.contains_key(anchor) {
-            result.insert(anchor.clone(), personalize * anchor_weight_multiplier);
+            result.insert(anchor.clone(), contrib);
         }
     }
 
@@ -97,6 +93,10 @@ pub fn compute_personalization(
 mod tests {
     use super::*;
 
+    fn no_anchors() -> HashMap<String, f64> {
+        HashMap::new()
+    }
+
     #[test]
     fn personalization_empty() {
         let result = compute_personalization(
@@ -105,8 +105,7 @@ mod tests {
             &[],
             &HashSet::new(),
             &HashSet::new(),
-            &HashSet::new(),
-            10.0,
+            &no_anchors(),
         );
         assert!(result.is_empty());
     }
@@ -123,12 +122,11 @@ mod tests {
             &files,
             &HashSet::new(),
             &HashSet::new(),
-            &HashSet::new(),
-            10.0,
+            &no_anchors(),
         );
 
         assert!(result.contains_key("main.rs"));
-        assert!(!result.contains_key("lib.rs")); // Not a chat file
+        assert!(!result.contains_key("lib.rs"));
         assert!((result["main.rs"] - 50.0).abs() < 0.001); // 100/2 = 50
     }
 
@@ -144,8 +142,7 @@ mod tests {
             &files,
             &mentioned,
             &HashSet::new(),
-            &HashSet::new(),
-            10.0,
+            &no_anchors(),
         );
 
         assert!(result.contains_key("lib.rs"));
@@ -164,11 +161,9 @@ mod tests {
             &files,
             &HashSet::new(),
             &idents,
-            &HashSet::new(),
-            10.0,
+            &no_anchors(),
         );
 
-        // "utils" is in the path, so file gets personalization
         assert!(result.contains_key("src/utils/mod.rs"));
     }
 
@@ -180,24 +175,17 @@ mod tests {
         mentioned.insert("main.rs".to_string());
         let files = vec!["main.rs".to_string()];
 
-        let result = compute_personalization(
-            1,
-            &chat,
-            &files,
-            &mentioned,
-            &HashSet::new(),
-            &HashSet::new(),
-            10.0,
-        );
+        let result =
+            compute_personalization(1, &chat, &files, &mentioned, &HashSet::new(), &no_anchors());
 
-        // Should be max(100, 100) = 100, not 200
+        // max(100, 100) = 100, not 200
         assert!((result["main.rs"] - 100.0).abs() < 0.001);
     }
 
     #[test]
-    fn personalization_anchor_files() {
-        let mut anchors = HashSet::new();
-        anchors.insert("entry.rs".to_string());
+    fn personalization_anchor_contributions() {
+        // Pre-computed: 10x multiplier * (100/2 base) = 500
+        let anchors = HashMap::from([("entry.rs".to_string(), 500.0)]);
         let files = vec!["entry.rs".to_string(), "lib.rs".to_string()];
 
         let result = compute_personalization(
@@ -207,20 +195,46 @@ mod tests {
             &HashSet::new(),
             &HashSet::new(),
             &anchors,
-            10.0,
         );
 
-        // entry.rs gets 10x boost: 10 * (100/2) = 500
         assert!(result.contains_key("entry.rs"));
         assert!((result["entry.rs"] - 500.0).abs() < 0.001);
         assert!(!result.contains_key("lib.rs"));
     }
 
     #[test]
+    fn personalization_anchor_ambiguous_divided_weight() {
+        // Two files share the ident: each gets half the multiplier weight.
+        // Pre-computed: 10 * (100/4) / 2 = 125 each (4 total files, 2 matches, div by 2)
+        let anchors = HashMap::from([
+            ("app_a/tasks.py".to_string(), 125.0),
+            ("app_b/tasks.py".to_string(), 125.0),
+        ]);
+        let files = vec![
+            "app_a/tasks.py".to_string(),
+            "app_b/tasks.py".to_string(),
+            "lib.rs".to_string(),
+            "util.rs".to_string(),
+        ];
+
+        let result = compute_personalization(
+            4,
+            &HashSet::new(),
+            &files,
+            &HashSet::new(),
+            &HashSet::new(),
+            &anchors,
+        );
+
+        assert!((result["app_a/tasks.py"] - 125.0).abs() < 0.001);
+        assert!((result["app_b/tasks.py"] - 125.0).abs() < 0.001);
+        assert!(!result.contains_key("lib.rs"));
+    }
+
+    #[test]
     fn personalization_anchor_not_in_rel_fnames() {
-        // Anchor resolved from ident may not be in other_fnames
-        let mut anchors = HashSet::new();
-        anchors.insert("external.rs".to_string());
+        // Anchor from ident may not be in other_fnames; inserted via fallback.
+        let anchors = HashMap::from([("external.rs".to_string(), 1000.0)]);
         let files = vec!["main.rs".to_string()];
 
         let result = compute_personalization(
@@ -230,10 +244,8 @@ mod tests {
             &HashSet::new(),
             &HashSet::new(),
             &anchors,
-            10.0,
         );
 
-        // external.rs gets inserted directly
         assert!(result.contains_key("external.rs"));
     }
 }

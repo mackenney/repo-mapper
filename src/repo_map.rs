@@ -91,7 +91,6 @@ impl RepoMap {
         );
 
         // Build cache key
-        // Build cache key
         let cache_key = if self.config.refresh == RefreshMode::Auto {
             MapCacheKey::auto(
                 chat_fnames,
@@ -99,8 +98,11 @@ impl RepoMap {
                 effective_max,
                 mentioned_fnames,
                 mentioned_idents,
-                &self.config.anchor_fnames,
-                &self.config.anchor_idents,
+                crate::cache::map_cache::AnchorCacheParams {
+                    anchor_fnames: &self.config.anchor_fnames,
+                    anchor_idents: &self.config.anchor_idents,
+                    anchor_scoped: &self.config.anchor_scoped,
+                },
             )
         } else {
             MapCacheKey::files(chat_fnames, other_fnames, effective_max)
@@ -217,28 +219,79 @@ impl RepoMap {
         let mut tag_index = TagIndex::from_tags(all_tags.into_iter());
         tag_index.apply_no_reference_fallback();
 
-        // Resolve anchor inputs to rel_fnames (SPEC §7.1a).
-        // Must happen after tag index is built so we can look up which file defines each ident.
-        let anchor_rel_fnames: HashSet<String> =
-            self.config
-                .anchor_fnames
-                .iter()
-                .map(|p| rel_path(p, &self.config.root))
-                .chain(
-                    self.config.anchor_idents.iter().flat_map(|ident| {
-                        tag_index.defines.get(ident).into_iter().flatten().cloned()
-                    }),
-                )
-                .collect();
+        // Resolve anchor inputs to per-file personalization contributions (SPEC §7.1a).
+        // Must happen after tag index is built so we can look up ident → defining files.
+        //
+        // anchor_fnames  : full weight each.
+        // anchor_idents  : look up in tag_index.defines; divide weight when ambiguous; warn.
+        // anchor_scoped  : full weight to the specified file; ident gets edge-weight boost.
+        let n_files = rel_fnames.len().max(1);
+        let personalize = 100.0 / n_files as f64;
+        let anchor_w = self.config.anchor_weight_multiplier;
 
-        if !anchor_rel_fnames.is_empty() {
-            debug!("Anchor files resolved: {:?}", anchor_rel_fnames);
+        let mut anchor_contributions: std::collections::HashMap<String, f64> =
+            std::collections::HashMap::new();
+        let mut scoped_idents: HashSet<String> = HashSet::new();
+
+        for p in &self.config.anchor_fnames {
+            let rel = rel_path(p, &self.config.root);
+            *anchor_contributions.entry(rel).or_default() += personalize * anchor_w;
         }
+
+        for ident in &self.config.anchor_idents {
+            match tag_index.defines.get(ident) {
+                None => {
+                    debug!("anchor ident '{}' not found in tag index; ignoring", ident);
+                }
+                Some(files) => {
+                    let n_matches = files.len() as f64;
+                    if n_matches > 1.0 {
+                        tracing::warn!(
+                            "anchor '{}' is defined in {} files; distributing weight equally. \
+                            Use -a file.py:ident to target one specific definition.",
+                            ident,
+                            files.len()
+                        );
+                    }
+                    let weight = personalize * anchor_w / n_matches;
+                    for f in files {
+                        *anchor_contributions.entry(f.clone()).or_default() += weight;
+                    }
+                }
+            }
+        }
+
+        for (p, ident) in &self.config.anchor_scoped {
+            let rel = rel_path(p, &self.config.root);
+            *anchor_contributions.entry(rel).or_default() += personalize * anchor_w;
+            scoped_idents.insert(ident.clone());
+        }
+
+        if !anchor_contributions.is_empty() {
+            debug!(
+                "Anchor contributions: {:?}",
+                anchor_contributions.keys().collect::<Vec<_>>()
+            );
+        }
+
+        // Merge scoped idents into mentioned_idents for edge-weight boosting.
+        // Borrow the original when no scoped anchors to avoid an allocation.
+        let merged_idents: HashSet<String>;
+        let effective_mentioned_idents: &HashSet<String> = if scoped_idents.is_empty() {
+            mentioned_idents
+        } else {
+            merged_idents = mentioned_idents
+                .iter()
+                .chain(scoped_idents.iter())
+                .cloned()
+                .collect();
+            &merged_idents
+        };
 
         // Build graph
         let graph = build_graph(
             &tag_index,
-            mentioned_idents,
+            effective_mentioned_idents,
             &chat_rel_fnames,
             self.config.self_edge_weight,
         );
@@ -249,9 +302,8 @@ impl RepoMap {
             &chat_rel_fnames,
             &rel_fnames,
             mentioned_fnames,
-            mentioned_idents,
-            &anchor_rel_fnames,
-            self.config.anchor_weight_multiplier,
+            effective_mentioned_idents,
+            &anchor_contributions,
         );
         // Run PageRank
         let params = PageRankParams {
@@ -308,19 +360,38 @@ impl RepoMap {
         ranked_tags = important_entries;
 
         // Prepend anchor files (SPEC §7.1b) — guaranteed inclusion regardless of budget.
-        // Mirrors the important-files mechanism: bare entry with score=f64::MAX at the front.
-        if !anchor_rel_fnames.is_empty() {
-            let already_included: HashSet<&str> =
-                ranked_tags.iter().map(|e| e.rel_fname()).collect();
-            let mut anchor_entries: Vec<RankedEntry> = anchor_rel_fnames
+        // Extract ALL existing entries for anchor files from their natural (low) rank position
+        // and move them to the front, preserving any tagged definitions they carry.
+        // If an anchor file has no entries at all (not in graph), add a bare entry.
+        if !anchor_contributions.is_empty() {
+            let anchor_files: std::collections::HashSet<&str> =
+                anchor_contributions.keys().map(|s| s.as_str()).collect();
+
+            let mut anchor_entries: Vec<RankedEntry> = Vec::new();
+            let mut rest: Vec<RankedEntry> = Vec::new();
+            for entry in ranked_tags {
+                if anchor_files.contains(entry.rel_fname()) {
+                    anchor_entries.push(entry);
+                } else {
+                    rest.push(entry);
+                }
+            }
+
+            // Add a bare entry for any anchor file that has no existing entries.
+            let covered: std::collections::HashSet<String> = anchor_entries
                 .iter()
-                .filter(|f| !already_included.contains(f.as_str()))
-                .map(|f| RankedEntry::Bare {
-                    rel_fname: f.clone(),
-                    score: f64::MAX,
-                })
+                .map(|e| e.rel_fname().to_string())
                 .collect();
-            anchor_entries.append(&mut ranked_tags);
+            for f in &anchor_files {
+                if !covered.contains(*f) {
+                    anchor_entries.push(RankedEntry::Bare {
+                        rel_fname: f.to_string(),
+                        score: f64::MAX,
+                    });
+                }
+            }
+
+            anchor_entries.append(&mut rest);
             ranked_tags = anchor_entries;
         }
 

@@ -40,7 +40,6 @@ pub struct FilesKey {
 }
 
 /// Auto mode cache key (SPEC §11).
-/// Auto mode cache key (SPEC §11).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AutoKey {
     pub chat_fnames: Option<Vec<PathBuf>>,
@@ -50,6 +49,15 @@ pub struct AutoKey {
     pub mentioned_idents: Option<Vec<String>>,
     pub anchor_fnames: Option<Vec<PathBuf>>,
     pub anchor_idents: Option<Vec<String>>,
+    pub anchor_scoped: Option<Vec<(PathBuf, String)>>,
+}
+
+/// Anchor inputs bundled for passing to `MapCacheKey::auto`.
+/// Avoids exceeding the 7-argument clippy limit.
+pub struct AnchorCacheParams<'a> {
+    pub anchor_fnames: &'a [PathBuf],
+    pub anchor_idents: &'a HashSet<String>,
+    pub anchor_scoped: &'a [(PathBuf, String)],
 }
 
 impl MapCacheKey {
@@ -69,8 +77,7 @@ impl MapCacheKey {
         max_tokens: usize,
         mentioned_fnames: &HashSet<String>,
         mentioned_idents: &HashSet<String>,
-        anchor_fnames: &[PathBuf],
-        anchor_idents: &HashSet<String>,
+        anchors: AnchorCacheParams<'_>,
     ) -> Self {
         MapCacheKey::Auto(AutoKey {
             chat_fnames: non_empty_sorted(chat_fnames),
@@ -78,14 +85,26 @@ impl MapCacheKey {
             max_tokens,
             mentioned_fnames: non_empty_sorted_set(mentioned_fnames),
             mentioned_idents: non_empty_sorted_set(mentioned_idents),
-            anchor_fnames: non_empty_sorted(anchor_fnames),
-            anchor_idents: non_empty_sorted_set(anchor_idents),
+            anchor_fnames: non_empty_sorted(anchors.anchor_fnames),
+            anchor_idents: non_empty_sorted_set(anchors.anchor_idents),
+            anchor_scoped: non_empty_sorted_pairs(anchors.anchor_scoped),
         })
     }
 }
 
 /// Convert to sorted Vec, or None if empty (SPEC §11: empty → None).
 fn non_empty_sorted<T: Clone + Ord>(items: &[T]) -> Option<Vec<T>> {
+    if items.is_empty() {
+        None
+    } else {
+        let mut v: Vec<_> = items.to_vec();
+        v.sort();
+        Some(v)
+    }
+}
+
+/// Convert slice of pairs to sorted Vec, or None if empty.
+fn non_empty_sorted_pairs<A: Clone + Ord, B: Clone + Ord>(items: &[(A, B)]) -> Option<Vec<(A, B)>> {
     if items.is_empty() {
         None
     } else {
@@ -270,8 +289,11 @@ mod tests {
             1024,
             &HashSet::new(),
             &HashSet::new(),
-            &[],
-            &HashSet::new(),
+            AnchorCacheParams {
+                anchor_fnames: &[],
+                anchor_idents: &HashSet::new(),
+                anchor_scoped: &[],
+            },
         );
 
         // Duration < 1s → don't use cache

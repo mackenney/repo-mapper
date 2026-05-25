@@ -69,55 +69,75 @@ An anchor is "a chat file that also shows up in the map."
 
 Add the following step after the existing step 4:
 
-> 5. If `anchor_rel_fnames` is non-empty, for each file `f` in `anchor_rel_fnames`:
->    `current_pers += personalize * anchor_weight_multiplier`.
+> 5. For each file in `anchor_contributions` (derived in §7.1a):
+>    `current_pers += anchor_contributions[file]`.
 >    This step is independent of steps 2–4; contributions are additive.
->    `anchor_rel_fnames` is derived from `anchor_fnames` and `anchor_idents` as
->    described in §7.1a.
+>    Anchor contributions are pre-computed weights that already incorporate the multiplier
+>    and any ambiguity division (see §7.1a).
 
-Add new sub-section §7.1a — Anchor resolution:
+Add new sub-section §7.1a — Anchor resolution and weight computation:
 
-> Before computing the personalization vector, the implementation MUST resolve
-> anchor inputs to `anchor_rel_fnames` (a set of relative file paths) as follows:
+> Before computing the personalization vector, the implementation MUST resolve anchor
+> inputs to `anchor_contributions: HashMap<rel_fname, f64>`. Let `personalize = 100/N`
+> and `anchor_w = anchor_weight_multiplier`.
 >
-> 1. For each path in `anchor_fnames`: convert to `rel_fname` relative to `root`.
->    Include even if the file is not in `other_fnames`.
-> 2. For each identifier in `anchor_idents`: look up `tag_index.defines[ident]`
->    and include all files in the resulting set.
->    If an identifier is not found in `tag_index.defines`, it is silently ignored.
-> 3. The union of all results from steps 1 and 2 is `anchor_rel_fnames`.
+> 1. **`anchor_fnames`**: for each path, compute `rel_fname`. Add `personalize * anchor_w`
+>    to `anchor_contributions[rel_fname]`. Additive across multiple inputs.
+>
+> 2. **`anchor_idents`**: for each identifier, look up `tag_index.defines[ident]`.
+>    - If not found: silently ignored (debug log only).
+>    - If found in N_matches files: add `personalize * anchor_w / N_matches` to each
+>      defining file in `anchor_contributions`.
+>    - If N_matches > 1: emit a `WARN` message naming the files and suggesting
+>      the `file:ident` form for disambiguation.
+>
+> 3. **`anchor_scoped`**: for each `(path, ident)` pair, compute `rel_fname` from path,
+>    add `personalize * anchor_w` to `anchor_contributions[rel_fname]`, and add `ident`
+>    to a `scoped_idents` set.
+>
+> After resolution, `scoped_idents` MUST be merged with `mentioned_idents` before
+> `build_graph` is called, so scoped identifiers receive the ×10 edge-weight boost (§6.4).
 >
 > Anchor resolution MUST occur after the TagIndex is built (§6.1) and before
 > personalization is computed (§7.1).
 
 Add new sub-section §7.1b — Anchor forced inclusion:
 
-> After building `ranked_tags` (§7.5) and after prepending important files (§8.2),
-> the implementation MUST prepend a `Bare` entry with `score = f64::MAX` for each
-> file in `anchor_rel_fnames` that is not already present in `ranked_tags`.
-> Files already present MUST NOT be duplicated.
+> After building `ranked_tags` (§7.5) and prepending important files (§8.2),
+> the implementation MUST extract all existing entries for anchor files from their
+> natural (low) rank position and move them to the front of `ranked_tags`.
+> For any anchor file with no existing entry (not in graph), a `Bare` entry with
+> `score = f64::MAX` MUST be inserted at the front.
 >
-> Rationale: RWR guarantees anchors get a positive PageRank score, but a very tight
-> token budget may still cut them in binary search. Forced inclusion mirrors the
-> behavior of §8.2 important files.
+> This ensures anchors are always within the binary-search window regardless of budget,
+> while preserving any definition tags they carry from the normal ranking pipeline.
 
 ### §14 — Configuration Parameters (new rows)
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `anchor_fnames` | Vec\<PathBuf\> | [] | Files to use as RWR restart seeds; always included in map output |
-| `anchor_idents` | HashSet\<String\> | {} | Identifiers whose defining files are used as RWR restart seeds |
+| `anchor_idents` | HashSet\<String\> | {} | Identifiers whose defining files are used as RWR restart seeds; weight divided equally when ambiguous |
+| `anchor_scoped` | Vec\<(PathBuf, String)\> | [] | File+ident pairs (`-a file.py:fn`); file gets full weight, ident gets edge-weight boost |
 | `anchor_weight_multiplier` | float | 10.0 | Personalization weight multiplier for anchor files relative to `personalize` (100/N) |
 
 ### §17.4 — CLI flags (new row)
 
 | Flag | Short | Type | Default | Maps to |
 |------|-------|------|---------|---------|
-| `--anchor <NAME_OR_PATH>` | `-a` | string (repeatable) | (empty) | `anchor_fnames` or `anchor_idents` |
+| `--anchor <VALUE>` | `-a` | string (repeatable) | (empty) | `anchor_scoped`, `anchor_fnames`, or `anchor_idents` |
 
-**Resolution rule:** if the value resolves to an existing file path (absolute, or
-relative to CWD), it is added to `anchor_fnames`. Otherwise it is added to
-`anchor_idents`. This allows `-a process_job` and `-a apps/luna/tasks.py` to both work.
+**Resolution rule** (applied in order per value):
+
+1. If the value contains `:` and the part before the colon resolves to an existing file
+   (absolute, CWD-relative, or root-relative): treated as `file:ident` → `anchor_scoped`.
+2. If the value resolves to an existing file: `anchor_fnames`.
+3. Otherwise: `anchor_idents` (tag-index lookup at runtime).
+
+Examples:
+- `-a process_job` → `anchor_idents` (looks up defining file at runtime)
+- `-a apps/luna/tasks.py` → `anchor_fnames` (unambiguous file anchor)
+- `-a apps/luna/tasks.py:process_job` → `anchor_scoped` (file + edge-weight boost for ident)
 
 `--anchor` may be specified multiple times. Each value is resolved independently.
 

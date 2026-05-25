@@ -126,17 +126,30 @@ fn run(cli: &Cli) -> i32 {
         }
     };
 
-    // Resolve anchor inputs: file path → anchor_fnames, identifier → anchor_idents
+    // Resolve -a/--anchor values into three buckets:
+    //   file:ident  → anchor_scoped  (colon form, file part must exist)
+    //   path/file   → anchor_fnames  (resolves to existing file)
+    //   identifier  → anchor_idents  (anything else; tag-index lookup at runtime)
     let cwd = std::env::current_dir().unwrap_or_default();
     let mut anchor_fnames: Vec<PathBuf> = Vec::new();
     let mut anchor_idents: HashSet<String> = HashSet::new();
+    let mut anchor_scoped: Vec<(PathBuf, String)> = Vec::new();
+
     for val in &cli.anchors {
-        let candidate = if std::path::Path::new(val).is_absolute() {
-            PathBuf::from(val)
-        } else {
-            cwd.join(val)
-        };
-        if candidate.exists() {
+        // Try file:ident form first. Split on first colon.
+        if let Some(colon) = val.find(':') {
+            let file_part = &val[..colon];
+            let ident_part = &val[colon + 1..];
+            if !file_part.is_empty() && !ident_part.is_empty() {
+                let resolved = resolve_path(file_part, &cwd, &root);
+                if let Some(candidate) = resolved {
+                    anchor_scoped.push((candidate, ident_part.to_string()));
+                    continue;
+                }
+            }
+        }
+        // Try as a plain file path (CWD-relative, then root-relative).
+        if let Some(candidate) = resolve_path(val, &cwd, &root) {
             anchor_fnames.push(candidate);
         } else {
             anchor_idents.insert(val.clone());
@@ -158,6 +171,7 @@ fn run(cli: &Cli) -> i32 {
         .verbose(cli.verbose)
         .anchor_fnames(anchor_fnames)
         .anchor_idents(anchor_idents)
+        .anchor_scoped(anchor_scoped)
         .build();
 
     // Enumerate files (SPEC §17.3)
@@ -288,6 +302,22 @@ fn enumerate_files(root: &PathBuf) -> Vec<PathBuf> {
 
     files.sort();
     files
+}
+
+/// Resolve a path string to an existing absolute PathBuf.
+/// Tries absolute, then CWD-relative, then root-relative.
+/// Returns None if none of the candidates exist.
+fn resolve_path(s: &str, cwd: &std::path::Path, root: &std::path::Path) -> Option<PathBuf> {
+    if std::path::Path::new(s).is_absolute() {
+        let p = PathBuf::from(s);
+        return p.exists().then_some(p);
+    }
+    let cwd_rel = cwd.join(s);
+    if cwd_rel.exists() {
+        return Some(cwd_rel);
+    }
+    let root_rel = root.join(s);
+    root_rel.exists().then_some(root_rel)
 }
 
 #[cfg(test)]
