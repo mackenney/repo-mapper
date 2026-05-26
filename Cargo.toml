@@ -5,6 +5,14 @@ edition = "2021"
 description = "Token-budget-respecting repository map generator"
 license = "MIT"
 
+[profile.dev]
+debug = 2
+
+[profile.dev.package."*"]
+# change provisionally! to debug=1/2 if more debug info is needed
+# this is here for target/ dir bloat
+debug = "line-tables-only"
+
 [dependencies]
 # Tree-sitter parsing
 tree-sitter = "0.26"
