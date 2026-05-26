@@ -1,5 +1,7 @@
 # repo-mapper
 
+> **⚠ Experimental** — this library is under active development and not recommended for production use.
+
 A Rust implementation of [aider's repo map](https://github.com/Aider-AI/aider/blob/main/aider/repomap.py) — a token-budget-respecting textual summary of a source code repository.
 
 Given a set of "chat" files (the ones you're actively editing) and the rest of the repository, it uses tree-sitter tag extraction and Personalized PageRank to identify the most structurally relevant files and definitions, then renders them as a compact text map.
