@@ -96,6 +96,7 @@ Test commands:
 cargo nextest run           # all tests
 cargo nextest run spec      # spec invariants only
 cargo test                  # fallback if nextest unavailable
+cargo install --path .      # release build + install to ~/.cargo/bin
 ```
 
 ## Conventions
@@ -110,5 +111,5 @@ cargo test                  # fallback if nextest unavailable
 ## Tooling
 
 - **Shell:** bash; `jq`, `rg`, `fdfind` available
-- **Build:** `cargo build`, `cargo test`, `cargo clippy`, `cargo fmt`
+- **Build:** `cargo build`, `cargo build --release`, `cargo clippy`, `cargo fmt`
 - **Tests:** `cargo nextest run` (preferred)

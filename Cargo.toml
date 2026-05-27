@@ -9,6 +9,11 @@ publish = false
 [profile.dev]
 debug = 2
 
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+
 [profile.dev.package."*"]
 # change provisionally! to debug=1/2 if more debug info is needed
 # this is here for target/ dir bloat
