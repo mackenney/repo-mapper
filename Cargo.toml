@@ -8,6 +8,7 @@ license = "Apache-2.0"
 repository = "https://github.com/mackenney/repo-mapper"
 documentation = "https://docs.rs/repo-mapper"
 readme = "README.md"
+exclude = ["AGENTS.md", "MASTER_PROGRESS.md"]
 keywords = ["repomap", "treesitter", "pagerank", "llm", "codebase"]
 categories = ["development-tools", "command-line-utilities", "parsing"]
 
