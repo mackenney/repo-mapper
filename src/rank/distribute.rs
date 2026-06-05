@@ -52,18 +52,28 @@ pub fn distribute_rank(
 /// A ranked entry in the final output.
 #[derive(Debug, Clone)]
 pub enum RankedEntry {
-    /// Full entry with definition tags
+    /// Full entry: file contains one or more tagged definitions for `ident`.
     Tagged {
+        /// Relative file path.
         rel_fname: String,
+        /// Identifier (function, class, etc.) defined in this file.
         ident: String,
+        /// All definition tags for this identifier in this file.
         tags: Vec<Tag>,
+        /// Aggregated PageRank score for this (file, ident) pair.
         score: f64,
     },
-    /// Bare file entry (no tags)
-    Bare { rel_fname: String, score: f64 },
+    /// Bare file entry with no associated definitions.
+    Bare {
+        /// Relative file path.
+        rel_fname: String,
+        /// Score (usually `f64::MAX` for forced-include files).
+        score: f64,
+    },
 }
 
 impl RankedEntry {
+    /// Returns the relative file path for this entry.
     pub fn rel_fname(&self) -> &str {
         match self {
             RankedEntry::Tagged { rel_fname, .. } => rel_fname,
@@ -71,6 +81,7 @@ impl RankedEntry {
         }
     }
 
+    /// Returns the aggregated PageRank score for this entry.
     pub fn score(&self) -> f64 {
         match self {
             RankedEntry::Tagged { score, .. } => *score,
@@ -78,6 +89,7 @@ impl RankedEntry {
         }
     }
 
+    /// Returns `true` if this is a bare (tag-free) file entry.
     pub fn is_bare(&self) -> bool {
         matches!(self, RankedEntry::Bare { .. })
     }

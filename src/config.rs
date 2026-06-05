@@ -86,96 +86,118 @@ impl RepoMapConfig {
 }
 
 impl RepoMapConfigBuilder {
+    /// Set the token budget for map output (default: 1024).
     pub fn map_tokens(mut self, n: usize) -> Self {
         self.config.map_tokens = n;
         self
     }
 
+    /// Set the repository root directory.
     pub fn root(mut self, path: impl Into<PathBuf>) -> Self {
         self.config.root = path.into();
         self
     }
 
+    /// Set a prefix prepended to every map output string.
     pub fn repo_content_prefix(mut self, prefix: impl Into<String>) -> Self {
         self.config.repo_content_prefix = Some(prefix.into());
         self
     }
 
+    /// Enable or disable verbose diagnostic output.
     pub fn verbose(mut self, v: bool) -> Self {
         self.config.verbose = v;
         self
     }
 
+    /// Set the LLM context window size.
+    ///
+    /// When set and no chat files are provided, the effective token budget is
+    /// multiplied by `map_mul_no_files` (default 8×).
     pub fn max_context_window(mut self, n: Option<usize>) -> Self {
         self.config.max_context_window = n;
         self
     }
 
+    /// Set the no-chat-files budget multiplier (default: 8).
     pub fn map_mul_no_files(mut self, n: usize) -> Self {
         self.config.map_mul_no_files = n;
         self
     }
 
+    /// Set the map cache refresh mode.
     pub fn refresh(mut self, mode: RefreshMode) -> Self {
         self.config.refresh = mode;
         self
     }
 
+    /// Force cache recomputation on the next call.
     pub fn force_refresh(mut self, v: bool) -> Self {
         self.config.force_refresh = v;
         self
     }
 
+    /// Exclude files whose PageRank score is ≤ 0.0001.
     pub fn exclude_unranked(mut self, v: bool) -> Self {
         self.config.exclude_unranked = v;
         self
     }
 
+    /// Set the self-edge weight added for each file (default: 0.1).
     pub fn self_edge_weight(mut self, w: f64) -> Self {
         self.config.self_edge_weight = w;
         self
     }
 
+    /// Truncate rendered lines longer than this many characters (default: 100).
     pub fn max_line_length(mut self, n: usize) -> Self {
         self.config.max_line_length = n;
         self
     }
 
+    /// Set the PageRank damping factor (default: 0.85).
     pub fn pagerank_damping(mut self, d: f64) -> Self {
         self.config.pagerank_damping = d;
         self
     }
 
+    /// Set the PageRank convergence tolerance (default: 1e-6).
     pub fn pagerank_tol(mut self, t: f64) -> Self {
         self.config.pagerank_tol = t;
         self
     }
 
+    /// Set the maximum number of PageRank iterations (default: 100).
     pub fn pagerank_max_iter(mut self, n: usize) -> Self {
         self.config.pagerank_max_iter = n;
         self
     }
 
+    /// Files always included in the map and used as PageRank restart seeds.
     pub fn anchor_fnames(mut self, fnames: Vec<std::path::PathBuf>) -> Self {
         self.config.anchor_fnames = fnames;
         self
     }
 
+    /// Identifiers whose defining files are used as PageRank restart seeds.
     pub fn anchor_idents(mut self, idents: std::collections::HashSet<String>) -> Self {
         self.config.anchor_idents = idents;
         self
     }
 
+    /// Scoped anchors: `(file, ident)` pairs — file is the restart seed, ident gets an edge-weight boost.
     pub fn anchor_scoped(mut self, scoped: Vec<(std::path::PathBuf, String)>) -> Self {
         self.config.anchor_scoped = scoped;
         self
     }
 
+    /// Personalization weight multiplier for anchor files (default: 10.0).
     pub fn anchor_weight_multiplier(mut self, m: f64) -> Self {
         self.config.anchor_weight_multiplier = m;
         self
     }
 
+    /// Build the [`RepoMap`](crate::repo_map::RepoMap) from this configuration.
     pub fn build(self) -> crate::repo_map::RepoMap {
         crate::repo_map::RepoMap::new(self.config)
     }

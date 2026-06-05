@@ -11,6 +11,7 @@ pub struct WarnedFiles {
 }
 
 impl WarnedFiles {
+    /// Create a new, empty warning tracker.
     pub fn new() -> Self {
         Self {
             warned: RefCell::new(HashSet::new()),

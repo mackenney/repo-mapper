@@ -27,9 +27,10 @@ impl Default for PageRankParams {
     }
 }
 
-/// PageRank errors.
+/// Error returned when PageRank cannot proceed.
 #[derive(Debug, Error)]
 pub enum PageRankError {
+    /// Personalization vector sums to zero; cannot normalize.
     #[error("Zero division: personalization vector sums to zero")]
     ZeroDivision,
 }

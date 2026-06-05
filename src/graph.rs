@@ -8,11 +8,11 @@ use std::collections::{HashMap, HashSet};
 /// Intermediate structures built from tags (SPEC §6.1).
 #[derive(Debug, Default)]
 pub struct TagIndex {
-    /// identifier_name → set<rel_fname> (files that define it)
+    /// `identifier_name` → set of `rel_fname` values (files that define it)
     pub defines: HashMap<String, HashSet<String>>,
-    /// identifier_name → list<rel_fname> (files that reference it, with multiplicity)
+    /// `identifier_name` → list of `rel_fname` values (files that reference it, with multiplicity)
     pub references: HashMap<String, Vec<String>>,
-    /// (rel_fname, identifier_name) → set<Tag> (definition tags)
+    /// `(rel_fname, identifier_name)` → set of definition [`Tag`]s
     pub definitions: HashMap<(String, String), HashSet<Tag>>,
 }
 

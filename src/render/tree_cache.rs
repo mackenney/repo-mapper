@@ -13,6 +13,7 @@ pub struct TreeCache {
 }
 
 impl TreeCache {
+    /// Create a new empty tree cache.
     pub fn new() -> Self {
         Self::default()
     }
@@ -49,6 +50,7 @@ pub struct TreeContextCache {
 }
 
 impl TreeContextCache {
+    /// Create a new empty tree context cache.
     pub fn new() -> Self {
         Self::default()
     }

@@ -12,7 +12,12 @@ use tracing_subscriber::{fmt, EnvFilter};
 #[derive(Parser, Debug)]
 #[command(
     name = "repo-mapper",
-    about = "Ranked structural summary of a codebase"
+    about = "Ranked structural summary of a codebase",
+    long_about = "Generate a token-budget-respecting map of a repository's structure.\n\n\
+repo-mapper parses source files with tree-sitter, builds a weighted file-dependency graph,\n\
+and runs Personalized PageRank to surface the most relevant definitions.\n\n\
+Output is a compact text listing of file paths and key symbols, sized to fit within a\n\
+token budget — suitable for pasting into an LLM context window."
 )]
 struct Cli {
     #[command(subcommand)]
@@ -26,8 +31,10 @@ enum Command {
     /// Parses every source file with tree-sitter, builds a weighted file-dependency graph,
     /// ranks files with Personalized PageRank, and renders a structured text map within
     /// the token budget. Chat files (-c) are excluded from the map but seed the ranking.
-    #[command(after_help = "Run `repo-mapper map --help` for advanced options \
-                      (chat context, mention boosts, PageRank tuning, cache control).")]
+    #[command(
+        after_help = "Run `repo-mapper map --help` for advanced options (chat context, mention boosts, PageRank tuning, cache control).",
+        after_long_help = ""
+    )]
     Map {
         /// Repository root (auto-detected from .git if omitted)
         #[arg(value_name = "REPO_PATH")]
@@ -104,8 +111,10 @@ enum Command {
     ///   src/jobs.rs          — anchor a file
     ///   process_job          — anchor an identifier (resolved via tag index)
     ///   src/jobs.rs:process_job — anchor a file and boost a specific identifier within it
-    #[command(after_help = "Run `repo-mapper focus --help` for advanced options \
-                      (cache control, output tuning, PageRank parameters).")]
+    #[command(
+        after_help = "Run `repo-mapper focus --help` for advanced options (cache control, output tuning, PageRank parameters).",
+        after_long_help = ""
+    )]
     Focus {
         /// Files, identifiers, or file:ident pairs to anchor on
         #[arg(required = true, value_name = "ANCHOR")]

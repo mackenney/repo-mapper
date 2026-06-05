@@ -34,29 +34,43 @@ pub enum MapCacheKey {
 /// Files mode cache key (SPEC §11).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FilesKey {
+    /// Sorted chat file paths, or `None` if empty.
     pub chat_fnames: Option<Vec<PathBuf>>,
+    /// Sorted other file paths, or `None` if empty.
     pub other_fnames: Option<Vec<PathBuf>>,
+    /// Token budget.
     pub max_tokens: usize,
 }
 
 /// Auto mode cache key (SPEC §11).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AutoKey {
+    /// Sorted chat file paths, or `None` if empty.
     pub chat_fnames: Option<Vec<PathBuf>>,
+    /// Sorted other file paths, or `None` if empty.
     pub other_fnames: Option<Vec<PathBuf>>,
+    /// Token budget.
     pub max_tokens: usize,
+    /// Sorted mentioned file names, or `None` if empty.
     pub mentioned_fnames: Option<Vec<String>>,
+    /// Sorted mentioned identifiers, or `None` if empty.
     pub mentioned_idents: Option<Vec<String>>,
+    /// Sorted anchor file paths, or `None` if empty.
     pub anchor_fnames: Option<Vec<PathBuf>>,
+    /// Sorted anchor identifiers, or `None` if empty.
     pub anchor_idents: Option<Vec<String>>,
+    /// Sorted scoped anchor (file, ident) pairs, or `None` if empty.
     pub anchor_scoped: Option<Vec<(PathBuf, String)>>,
 }
 
 /// Anchor inputs bundled for passing to `MapCacheKey::auto`.
 /// Avoids exceeding the 7-argument clippy limit.
 pub struct AnchorCacheParams<'a> {
+    /// Anchor files whose defining files should receive a ranking boost.
     pub anchor_fnames: &'a [PathBuf],
+    /// Anchor identifiers to be resolved via the tag index.
     pub anchor_idents: &'a HashSet<String>,
+    /// Scoped anchors: (file, identifier) pairs.
     pub anchor_scoped: &'a [(PathBuf, String)],
 }
 
