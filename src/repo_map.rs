@@ -4,15 +4,15 @@ use crate::budget::{binary_search_budget, compute_effective_max};
 use crate::cache::map_cache::{MapCache, MapCacheKey, RefreshMode};
 use crate::cache::tag_cache::TagCache;
 use crate::config::RepoMapConfig;
-use crate::edge_cases::{substitute_prefix, WarnedFiles};
+use crate::edge_cases::{WarnedFiles, substitute_prefix};
 use crate::extract::extract_tags;
 use crate::file::{get_mtime, is_regular_file, read_file_utf8};
-use crate::graph::{build_graph, TagIndex};
+use crate::graph::{TagIndex, build_graph};
 use crate::important::filter_important_files;
 use crate::path::rel_path;
 use crate::rank::{
-    build_ranked_tags, compute_personalization, distribute_rank, pagerank, PageRankParams,
-    RankedEntry,
+    PageRankParams, RankedEntry, build_ranked_tags, compute_personalization, distribute_rank,
+    pagerank,
 };
 use crate::render::{TreeCache, TreeContextCache};
 use crate::tokens::TokenCounter;

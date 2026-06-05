@@ -104,18 +104,19 @@ pub fn extract_tags(fname: &Path, rel_fname: &str, content: &str) -> Vec<Tag> {
     }
 
     // Step 8: Apply identifier fallback if needed (SPEC §3.2)
-    if saw_def && !saw_ref {
-        if let Some(idents_query_src) = query_pair.idents {
-            let fallback_tags = extract_idents_fallback(
-                &ts_language,
-                idents_query_src,
-                &root_node,
-                source_bytes,
-                rel_fname,
-                &fname.to_string_lossy(),
-            );
-            tags.extend(fallback_tags);
-        }
+    if saw_def
+        && !saw_ref
+        && let Some(idents_query_src) = query_pair.idents
+    {
+        let fallback_tags = extract_idents_fallback(
+            &ts_language,
+            idents_query_src,
+            &root_node,
+            source_bytes,
+            rel_fname,
+            &fname.to_string_lossy(),
+        );
+        tags.extend(fallback_tags);
     }
 
     tags

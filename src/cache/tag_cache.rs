@@ -1,7 +1,7 @@
 //! Persistent tag cache (SPEC §5).
 
 use crate::tag::Tag;
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tracing::{debug, warn};

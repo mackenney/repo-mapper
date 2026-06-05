@@ -53,15 +53,13 @@ pub fn compute_personalization(
                 break;
             }
         }
-        if !path_matched {
-            if let Some(stem) = std::path::Path::new(rel_fname)
+        if !path_matched
+            && let Some(stem) = std::path::Path::new(rel_fname)
                 .file_stem()
                 .and_then(|s| s.to_str())
-            {
-                if mentioned_idents.contains(stem) {
-                    path_matched = true;
-                }
-            }
+            && mentioned_idents.contains(stem)
+        {
+            path_matched = true;
         }
         if path_matched {
             current_pers += personalize;

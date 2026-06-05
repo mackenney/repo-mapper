@@ -7,7 +7,7 @@ use repo_mapper::{RefreshMode, RepoMapConfig};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::time::Duration;
-use tracing_subscriber::{fmt, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -326,11 +326,12 @@ fn run_inner(args: RunArgs<'_>) -> i32 {
         if let Some(colon) = val.find(':') {
             let file_part = &val[..colon];
             let ident_part = &val[colon + 1..];
-            if !file_part.is_empty() && !ident_part.is_empty() {
-                if let Some(candidate) = resolve_path(file_part, &args.cwd, &args.root) {
-                    anchor_scoped.push((candidate, ident_part.to_string()));
-                    continue;
-                }
+            if !file_part.is_empty()
+                && !ident_part.is_empty()
+                && let Some(candidate) = resolve_path(file_part, &args.cwd, &args.root)
+            {
+                anchor_scoped.push((candidate, ident_part.to_string()));
+                continue;
             }
         }
         if let Some(candidate) = resolve_path(val, &args.cwd, &args.root) {

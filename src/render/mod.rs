@@ -138,12 +138,11 @@ pub fn to_tree(
         }
 
         // Append line to lois if not sentinel
-        if !is_sentinel(entry) {
-            if let (Some(ref mut loi_list), RankedEntry::Tagged { tags, .. }) = (&mut lois, *entry)
-            {
-                for tag in tags {
-                    loi_list.push(tag.line);
-                }
+        if !is_sentinel(entry)
+            && let (Some(loi_list), RankedEntry::Tagged { tags, .. }) = (&mut lois, *entry)
+        {
+            for tag in tags {
+                loi_list.push(tag.line);
             }
         }
     }

@@ -1,7 +1,7 @@
 [package]
 name = "repo-mapper"
 version = "0.0.1"
-edition = "2021"
+edition = "2024"
 rust-version = "1.88"
 description = "Token-budget-respecting repository map generator — ranked structural summary of a codebase"
 license = "Apache-2.0"

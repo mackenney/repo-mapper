@@ -147,17 +147,17 @@ static FILENAME_TO_LANG: phf::Map<&'static str, &'static str> = phf_map! {
 /// Returns `None` if the language is unrecognized (SPEC §3.1 step 2).
 pub fn detect_language(path: &Path) -> Option<&'static str> {
     // First try full filename match
-    if let Some(filename) = path.file_name().and_then(|s| s.to_str()) {
-        if let Some(&lang) = FILENAME_TO_LANG.get(filename) {
-            return Some(lang);
-        }
+    if let Some(filename) = path.file_name().and_then(|s| s.to_str())
+        && let Some(&lang) = FILENAME_TO_LANG.get(filename)
+    {
+        return Some(lang);
     }
 
     // Then try extension match
-    if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
-        if let Some(&lang) = EXTENSION_TO_LANG.get(ext) {
-            return Some(lang);
-        }
+    if let Some(ext) = path.extension().and_then(|s| s.to_str())
+        && let Some(&lang) = EXTENSION_TO_LANG.get(ext)
+    {
+        return Some(lang);
     }
 
     None

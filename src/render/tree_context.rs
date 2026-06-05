@@ -106,10 +106,10 @@ impl TreeContext {
 
         for line_idx in show_lines {
             // Add ellipsis for gaps
-            if let Some(last) = last_line {
-                if line_idx > last + 1 {
-                    output.push_str("⋮\n");
-                }
+            if let Some(last) = last_line
+                && line_idx > last + 1
+            {
+                output.push_str("⋮\n");
             }
 
             output.push_str(&self.lines[line_idx]);
