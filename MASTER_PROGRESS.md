@@ -1,49 +1,26 @@
 # Master Progress
 
-Read this file to understand the current state of repo-mapper. One-liner per item; all detail is in plan files and git history.
-
----
+Single source of truth for project-wide work status.
 
 ## In Progress
 
-| Item | Plan | Notes |
-|---|---|---|
-| _(none)_ | | |
-
----
+_(none)_
 
 ## Completed
 
-### Foundation
+- SPEC.md reverse-engineered from `reference/aider/aider/repomap.py`
+- Project governance: AGENTS.md, MASTER_PROGRESS.md (`e6d1201`)
+- Full implementation: tag extraction, graph construction, PageRank, caching, rendering, token budget, public API, CLI (`46075db`)
+- Public release prep: docs, missing_docs lint, CLI help, Cargo metadata, LICENSE (`HEAD`)
 
-| What | Ref |
-|---|---|
-| SPEC.md reverse-engineered from reference/aider/aider/repomap.py | pre-history |
-| AGENTS.md, MASTER_PROGRESS.md, project governance established | `e6d1201` |
+## Queued
 
-### Full Implementation
-
-| What | Ref |
-|---|---|
-| Full 15-step implementation: cargo skeleton, core types, lang/query/parser registry, tag extraction, graph, PageRank, caching, rendering, token budget, public API, CLI | `46075db` |
-
----
-
-## Queued (Not Started)
-
-| Plan | What |
-|---|---|
-| _(none)_ | |
-
----
+_(none)_
 
 ## Known Gaps
 
-Gaps with an active plan are marked. Unplanned gaps are open for pickup.
+**BUG-REF-1** — Reference captures-processing bug (§3.5)
+repomap.py has a loop indentation bug that causes duplicate/dropped tags. Intentionally not replicated — the Rust implementation emits one `Tag` per captured node with no data loss and no duplicates.
 
-| ID | Issue | Plan | Notes |
-|---|---|---|---|
-| OQ-1 | ~~I/O and diagnostic abstraction~~ | **RESOLVED** | `tracing` for diagnostics, `std::fs` for file reading. See SPEC §14 and §17.5 |
-| OQ-2 | ~~Pygments fallback has no Rust equivalent~~ | **RESOLVED** | Replaced with supplemental `-idents.scm` tree-sitter query. See SPEC §3.2 |
-| BUG-REF-1 | Reference captures-processing bug (§3.5) | _(no plan)_ | repomap.py loop indentation bug — intentionally NOT replicated; Rust MUST emit one Tag per captured node with no data loss and no duplicates |
-| BUG-REF-2 | `warned_files` class-level shared state (§13.5) | _(no plan)_ | Reference uses class-level set, sharing deduplication across all instances; Rust MUST use per-instance state instead |
+**BUG-REF-2** — `warned_files` class-level shared state (§13.5)
+The reference uses a class-level set, sharing deduplication across all instances. The Rust implementation uses per-instance state instead, which is the correct design.
