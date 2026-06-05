@@ -71,8 +71,10 @@ Add to `Cargo.toml`:
 
 ```toml
 [dependencies]
-repo-mapper = "0.0.1"
+repo-mapper = { version = "0.0.1", default-features = false }
 ```
+
+The `cli` feature (on by default) pulls in `clap`, `ignore`, `indicatif`, and `tracing-subscriber` for the binary. Library consumers should disable it.
 
 Basic usage:
 

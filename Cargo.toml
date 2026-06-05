@@ -9,7 +9,11 @@ repository = "https://github.com/mackenney/repo-mapper"
 documentation = "https://docs.rs/repo-mapper"
 readme = "README.md"
 keywords = ["repomap", "treesitter", "pagerank", "llm", "codebase"]
-categories = ["development-tools", "parsing"]
+categories = ["development-tools", "command-line-utilities", "parsing"]
+
+[features]
+default = ["cli"]
+cli = ["dep:clap", "dep:ignore", "dep:tracing-subscriber", "dep:indicatif"]
 
 [profile.dev]
 debug = 2
@@ -51,11 +55,11 @@ pathdiff = "0.2"
 # Logging/diagnostics
 tracing = "0.1"
 
-# CLI (only needed by binary, but simplest to include)
-clap = { version = "4", features = ["derive"] }
-ignore = "0.4"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-indicatif = "0.17"
+# CLI binary (gated behind the `cli` feature, on by default)
+clap = { version = "4", features = ["derive"], optional = true }
+ignore = { version = "0.4", optional = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"], optional = true }
+indicatif = { version = "0.17", optional = true }
 
 # Error handling
 thiserror = "2"
@@ -66,3 +70,4 @@ tempfile = "3"
 [[bin]]
 name = "repo-mapper"
 path = "src/bin/repo-mapper.rs"
+required-features = ["cli"]
