@@ -18,9 +18,6 @@ reference/        Source reference implementations (git-ignored; do not commit)
   aider/          aider repomap.py — primary behavioral ground truth
   RepoMapper/     Secondary reference
 artifacts/        Transient working files — git-ignored, never committed
-  investigations/ Scanner / librarian output
-  fact-checks/    Fact-check sub-artifacts and reports
-  progress/       Orchestrator progress files
 SPEC.md           Behavioral contract for the entire library (reverse-engineered)
 MASTER_PROGRESS.md  Single source of truth for project-wide work status
 ```
@@ -69,34 +66,23 @@ Every human and agent working on repo-mapper reads it first to understand curren
 
 ## Artifacts
 
-- All transient working files (investigation scans, fact-check reports,
-  progress trackers, brainstorm notes) live in `artifacts/` and are git-ignored.
-- Never commit files from `artifacts/`.
-- Never commit scratch files, review outputs, or session recordings to the repo root.
-  Anything not a permanent project doc belongs in `artifacts/`.
+- `artifacts/` is a general-purpose directory for transient working files.
+- It is git-ignored and never committed.
+- Use it freely for investigation scans, fact-check reports, progress trackers,
+  brainstorm notes, and any other session-scoped output.
 
 ## Testing
 
 Rules for agents:
 
-- **Inline unit tests** (`#[cfg(test)]` modules in `src/`) are implementation details.
-  Change them freely during refactors — they carry no external obligation.
-- **External tests** (`tests/`) are behavioral contracts. A failing external test is a
-  bug or a deliberate spec change, never a refactor side effect.
-- External test tiers, in order of scope:
-  1. **Spec invariants** (`tests/spec/`) — direct MUST/SHOULD assertions from SPEC.md;
-     must pass on every commit. Named `test_<section>_<brief_description>` where `<section>`
-     matches the SPEC.md section number (e.g. `test_3_1_skip_unrecognized_language`).
-  2. **Integration** (`tests/integration/`) — public-API behavior end-to-end.
-- Never weaken an external test to make a refactor pass. Either the implementation is
-  wrong or the spec changed — update the spec explicitly and record the decision.
+- All tests are inline unit tests (`#[cfg(test)]` modules in `src/`). They are
+  implementation details — change them freely during refactors.
 
 Test commands:
 ```sh
-cargo nextest run           # all tests
-cargo nextest run spec      # spec invariants only
-cargo test                  # fallback if nextest unavailable
-cargo install --path .      # release build + install to ~/.cargo/bin
+cargo nextest run       # all tests (preferred)
+cargo test              # fallback if nextest unavailable
+cargo install --path .  # release build + install to ~/.cargo/bin
 ```
 
 ## Conventions
